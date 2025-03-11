@@ -1,7 +1,278 @@
-export * from './auth';
-export * from './listing';
-export * from './transaction';
-export * from './message';
+// Re-export all types from individual files
+// User and Auth types
+export interface User {
+  _id: string;
+  username: string;
+  email: string;
+  fullName: string;
+  bio?: string;
+  avatar?: string;
+  phoneNumber?: string;
+  skills: string[];
+  location: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+    address: string;
+  };
+  talentBalance: number;
+  ratings: Rating[];
+  averageRating: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Rating {
+  user: string | User;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+}
+
+export interface AuthContextType {
+  user: User | null;
+  token: string | null;
+  isLoading: boolean;
+  error: string | null;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: RegisterData) => Promise<boolean>;
+  logout: () => Promise<boolean>;
+  updateProfile: (data: Partial<User>) => Promise<boolean>;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  username: string;
+  email: string;
+  password: string;
+  fullName: string;
+  phoneNumber?: string;
+  skills?: string[];
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+// Listing types
+export type ListingCategory = 
+  | 'Goods'
+  | 'Services'
+  | 'Food'
+  | 'Crafts'
+  | 'Electronics'
+  | 'Clothing'
+  | 'Furniture'
+  | 'Books'
+  | 'Tools'
+  | 'Education'
+  | 'Transportation'
+  | 'Other';
+
+export type ItemCondition = 
+  | 'New'
+  | 'Like New'
+  | 'Good'
+  | 'Fair'
+  | 'Poor'
+  | 'Not Applicable';
+
+export type ListingType = 'Offer' | 'Request';
+
+export type ExchangeType = 'Talent' | 'Direct Swap' | 'Both';
+
+export interface ListingImage {
+  url: string;
+  caption?: string;
+}
+
+export interface Listing {
+  _id: string;
+  user: string | User;
+  title: string;
+  description: string;
+  category: ListingCategory;
+  subCategory?: string;
+  images: ListingImage[];
+  condition: ItemCondition;
+  listingType: ListingType;
+  exchangeType: ExchangeType;
+  talentPrice: number;
+  swapFor?: string;
+  location: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+    address: string;
+  };
+  isActive: boolean;
+  isFeatured: boolean;
+  views: number;
+  likes: string[] | User[];
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListingFormData {
+  title: string;
+  description: string;
+  category: ListingCategory;
+  subCategory?: string;
+  images: ListingImage[];
+  condition: ItemCondition;
+  listingType: ListingType;
+  exchangeType: ExchangeType;
+  talentPrice?: number;
+  swapFor?: string;
+  location?: {
+    coordinates: [number, number];
+    address: string;
+  };
+}
+
+export interface ListingFilter {
+  category?: ListingCategory;
+  listingType?: ListingType;
+  exchangeType?: ExchangeType;
+  priceMin?: number;
+  priceMax?: number;
+  nearMe?: boolean;
+  distance?: number;
+  searchTerm?: string;
+  sortBy?: 'newest' | 'oldest' | 'priceAsc' | 'priceDesc';
+  page?: number;
+  limit?: number;
+}
+
+// Transaction types
+export type TransactionStatus = 
+  | 'Proposed'
+  | 'Accepted'
+  | 'Rejected'
+  | 'Completed'
+  | 'Cancelled'
+  | 'Disputed'
+  | 'Resolved';
+
+export type TransactionType = 'Talent' | 'Direct Swap' | 'Combined';
+
+export interface TransactionItem {
+  description: string;
+  images?: string[];
+}
+
+export interface TransactionMessage {
+  sender: string | User;
+  content: string;
+  timestamp: string;
+}
+
+export interface TransactionRating {
+  rating: number;
+  comment?: string;
+  timestamp?: string;
+}
+
+export interface StatusHistoryItem {
+  status: TransactionStatus;
+  timestamp: string;
+  updatedBy: string | User;
+}
+
+export interface Transaction {
+  _id: string;
+  initiator: string | User;
+  recipient: string | User;
+  listing?: string | Listing;
+  status: TransactionStatus;
+  type: TransactionType;
+  talentAmount: number;
+  items: TransactionItem[];
+  messages: TransactionMessage[];
+  meetupLocation?: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+    address: string;
+  };
+  meetupTime?: string;
+  initiatorRating?: TransactionRating;
+  recipientRating?: TransactionRating;
+  statusHistory: StatusHistoryItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TransactionFormData {
+  recipientId: string;
+  listingId?: string;
+  type: TransactionType;
+  talentAmount?: number;
+  items?: TransactionItem[];
+  message?: string;
+  meetupLocation?: {
+    coordinates: [number, number];
+    address: string;
+  };
+  meetupTime?: string;
+}
+
+export interface TransactionFilter {
+  status?: TransactionStatus;
+  role?: 'initiator' | 'recipient' | 'both';
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: 'newest' | 'oldest';
+  page?: number;
+  limit?: number;
+}
+
+// Message types
+export interface ReadStatus {
+  user: string | User;
+  timestamp: string;
+}
+
+export interface Message {
+  _id: string;
+  conversation: string | Conversation;
+  sender: string | User;
+  content: string;
+  attachments?: string[];
+  readBy: ReadStatus[];
+  isSystemMessage: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Conversation {
+  _id: string;
+  participants: (string | User)[];
+  listing?: string | Listing;
+  transaction?: string | Transaction;
+  lastMessage?: string | Message;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  unreadCount?: number; // Client-side computed property
+}
+
+export interface MessageFormData {
+  conversationId: string;
+  content: string;
+  attachments?: string[];
+}
+
+export interface ConversationListItem extends Conversation {
+  otherParticipant: User; // The other user in the conversation (client-side computed)
+  lastMessageContent: string;
+  lastMessageTime: string;
+}
 
 // Theme types
 export interface ThemeColors {

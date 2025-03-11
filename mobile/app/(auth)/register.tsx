@@ -5,40 +5,57 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../constants/Theme';
+import { RegisterData } from '../../types';
 
-export default function Login() {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+export default function Register() {
+  const [formData, setFormData] = useState<RegisterData>({
+    username: '',
+    email: '',
+    password: '',
+    fullName: '',
+  });
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
   const router = useRouter();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const { colors } = useTheme();
   
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+  const handleRegister = async () => {
+    // Basic validation
+    if (!formData.username || !formData.email || !formData.password || !formData.fullName) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+    
+    if (formData.password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+    
+    if (formData.password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      const success = await login(email, password);
+      const success = await register(formData);
       if (success) {
         router.replace('/(app)/home');
       } else {
-        Alert.alert('Login Failed', 'Invalid email or password');
+        Alert.alert('Registration Failed', 'Could not create account. Please try again.');
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -51,44 +68,53 @@ export default function Login() {
     }
   };
   
+  const updateFormData = (key: keyof RegisterData, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+  
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={[styles.container, { backgroundColor: colors.background.dark }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.logoContainer}>
-          {/* Placeholder for logo - we'll add an actual image later */}
-          <View 
-            style={[
-              styles.logo, 
-              { 
-                backgroundColor: colors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 75
-              }
-            ]}
-          >
-            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#000' }}>
-              SK
-            </Text>
-          </View>
-        </View>
-        
-        <Text style={[styles.title, { color: colors.text.primary }]}>Welcome to SwopKasi</Text>
+        <Text style={[styles.title, { color: colors.text.primary }]}>Create Account</Text>
         <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
-          Township barter made easy
+          Join SwopKasi community and start bartering
         </Text>
         
         <View style={styles.form}>
           <View style={[styles.inputContainer, { backgroundColor: colors.background.card }]}>
             <TextInput
               style={[styles.input, { color: colors.text.primary }]}
+              placeholder="Full Name"
+              placeholderTextColor={colors.text.muted}
+              value={formData.fullName}
+              onChangeText={(value) => updateFormData('fullName', value)}
+            />
+          </View>
+          
+          <View style={[styles.inputContainer, { backgroundColor: colors.background.card }]}>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary }]}
+              placeholder="Username"
+              placeholderTextColor={colors.text.muted}
+              value={formData.username}
+              onChangeText={(value) => updateFormData('username', value)}
+              autoCapitalize="none"
+            />
+          </View>
+          
+          <View style={[styles.inputContainer, { backgroundColor: colors.background.card }]}>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary }]}
               placeholder="Email"
               placeholderTextColor={colors.text.muted}
-              value={email}
-              onChangeText={setEmail}
+              value={formData.email}
+              onChangeText={(value) => updateFormData('email', value)}
               autoCapitalize="none"
               keyboardType="email-address"
             />
@@ -99,30 +125,52 @@ export default function Login() {
               style={[styles.input, { color: colors.text.primary }]}
               placeholder="Password"
               placeholderTextColor={colors.text.muted}
-              value={password}
-              onChangeText={setPassword}
+              value={formData.password}
+              onChangeText={(value) => updateFormData('password', value)}
               secureTextEntry
+            />
+          </View>
+          
+          <View style={[styles.inputContainer, { backgroundColor: colors.background.card }]}>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary }]}
+              placeholder="Confirm Password"
+              placeholderTextColor={colors.text.muted}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+          </View>
+          
+          <View style={[styles.inputContainer, { backgroundColor: colors.background.card }]}>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary }]}
+              placeholder="Phone Number (optional)"
+              placeholderTextColor={colors.text.muted}
+              value={formData.phoneNumber || ''}
+              onChangeText={(value) => updateFormData('phoneNumber', value)}
+              keyboardType="phone-pad"
             />
           </View>
           
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.primary }]}
-            onPress={handleLogin}
+            onPress={handleRegister}
             disabled={isSubmitting}
           >
             <Text style={styles.buttonText}>
-              {isSubmitting ? 'Logging in...' : 'Login'}
+              {isSubmitting ? 'Creating Account...' : 'Register'}
             </Text>
           </TouchableOpacity>
           
           <View style={styles.linkContainer}>
             <Text style={[styles.linkText, { color: colors.text.secondary }]}>
-              Don't have an account?{' '}
+              Already have an account?{' '}
             </Text>
-            <Link href="/(auth)/register" asChild>
+            <Link href="/(auth)/login" asChild>
               <TouchableOpacity>
                 <Text style={[styles.link, { color: colors.accent }]}>
-                  Register
+                  Login
                 </Text>
               </TouchableOpacity>
             </Link>
@@ -141,14 +189,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: SPACING.large,
     justifyContent: 'center',
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: SPACING.large,
-  },
-  logo: {
-    width: 150,
-    height: 150,
   },
   title: {
     fontSize: FONT.sizes.title,

@@ -1,6 +1,62 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as AuthService from '../services/authService';
+// Since we haven't implemented the actual service yet, let's create a mock service
+const AuthService = {
+  login: async (email: string, password: string) => {
+    // Mock implementation - in a real app this would call an API
+    return new Promise<{token: string, user: any}>((resolve) => {
+      setTimeout(() => {
+        resolve({
+          token: 'mock-token-12345',
+          user: {
+            _id: '1',
+            email,
+            fullName: 'Test User',
+            username: 'testuser',
+            talentBalance: 50,
+            skills: ['Coding', 'Design'],
+            location: {
+              type: 'Point',
+              coordinates: [18.4241, -33.9249], // Cape Town coordinates
+              address: 'Cape Town, South Africa'
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        });
+      }, 1000);
+    });
+  },
+  register: async (userData: any) => {
+    // Mock implementation
+    return new Promise<{token: string, user: any}>((resolve) => {
+      setTimeout(() => {
+        resolve({
+          token: 'mock-token-12345',
+          user: {
+            _id: '1',
+            ...userData,
+            talentBalance: 10,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        });
+      }, 1000);
+    });
+  },
+  updateProfile: async (data: any, token: string) => {
+    // Mock implementation
+    return new Promise<any>((resolve) => {
+      setTimeout(() => {
+        resolve({
+          ...data,
+          _id: '1',
+          updatedAt: new Date().toISOString()
+        });
+      }, 1000);
+    });
+  }
+};
 import { AuthContextType, User, RegisterData } from '../types';
 
 const defaultAuthContext: AuthContextType = {
