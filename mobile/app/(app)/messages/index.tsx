@@ -126,6 +126,11 @@ export default function MessagesScreen() {
     router.push(`/(app)/messages/${id}`);
   };
   
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchConversations();
+  };
+  
   if (loading && !refreshing) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -133,10 +138,6 @@ export default function MessagesScreen() {
       </View>
     );
   }
-  
-    function handleRefresh(): void {
-        throw new Error('Function not implemented.');
-    }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -214,6 +215,14 @@ export default function MessagesScreen() {
           </View>
         )}
       />
+      
+      {/* New Message Button */}
+      <TouchableOpacity
+        style={[styles.newMessageButton, { backgroundColor: colors.primary }]}
+        onPress={() => router.push('/(app)/messages/new')}
+      >
+        <FontAwesome5 name="plus" size={20} color="#000" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -288,5 +297,20 @@ const styles = StyleSheet.create({
   emptySubText: {
     fontSize: FONT.sizes.medium,
     textAlign: 'center',
+  },
+  newMessageButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 });

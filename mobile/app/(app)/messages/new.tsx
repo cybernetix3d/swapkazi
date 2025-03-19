@@ -10,7 +10,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Image
+  FlatList
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -19,6 +19,67 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { User, Listing } from '../../../types';
 import * as ListingService from '../../../services/listingService';
+
+// Mock users for recipient selection
+const mockUsers = [
+  {
+    _id: '2',
+    username: 'thabo_m',
+    email: 'thabo@example.com',
+    fullName: 'Thabo M',
+    avatar: 'https://via.placeholder.com/50',
+    skills: ['Crafts'],
+    talentBalance: 50,
+    location: {
+      type: 'Point',
+      coordinates: [18.4241, -33.9249],
+      address: 'Khayelitsha, Cape Town'
+    },
+    ratings: [],
+    averageRating: 4.5,
+    isActive: true,
+    createdAt: '2023-01-15T10:30:00Z',
+    updatedAt: '2023-01-15T10:30:00Z'
+  },
+  {
+    _id: '3',
+    username: 'lerato_k',
+    email: 'lerato@example.com',
+    fullName: 'Lerato K',
+    avatar: 'https://via.placeholder.com/50',
+    skills: ['Gardening'],
+    talentBalance: 75,
+    location: {
+      type: 'Point',
+      coordinates: [18.4641, -33.9249],
+      address: 'Gugulethu, Cape Town'
+    },
+    ratings: [],
+    averageRating: 4.8,
+    isActive: true,
+    createdAt: '2023-01-10T09:20:00Z',
+    updatedAt: '2023-01-10T09:20:00Z'
+  },
+  {
+    _id: '4',
+    username: 'mandla_j',
+    email: 'mandla@example.com',
+    fullName: 'Mandla J',
+    avatar: 'https://via.placeholder.com/50',
+    skills: ['Carpentry', 'Plumbing'],
+    talentBalance: 95,
+    location: {
+      type: 'Point',
+      coordinates: [18.4841, -33.9649],
+      address: 'Philippi, Cape Town'
+    },
+    ratings: [],
+    averageRating: 4.6,
+    isActive: true,
+    createdAt: '2022-12-20T11:45:00Z',
+    updatedAt: '2022-12-20T11:45:00Z'
+  }
+];
 
 export default function NewConversationScreen() {
   const { userId, listingId } = useLocalSearchParams<{ userId?: string; listingId?: string }>();
@@ -31,6 +92,9 @@ export default function NewConversationScreen() {
   const [message, setMessage] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [sending, setSending] = useState<boolean>(false);
+  const [showUserSelection, setShowUserSelection] = useState<boolean>(false);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   
   useEffect(() => {
     fetchData();
@@ -43,35 +107,16 @@ export default function NewConversationScreen() {
       // In a real app, you'd fetch the recipient and listing from your API
       // For now, we'll use mock data
       
-      // Mock fetch user
+      // Mock fetch user if specified
       if (userId) {
-        // Simulate API call
-        setTimeout(() => {
-          const mockUser: User = {
-            _id: userId || '2',
-            username: 'thabo_m',
-            email: 'thabo@example.com',
-            fullName: 'Thabo M',
-            avatar: 'https://via.placeholder.com/50',
-            skills: ['Crafts'],
-            talentBalance: 50,
-            location: {
-              type: 'Point',
-              coordinates: [18.4241, -33.9249],
-              address: 'Khayelitsha, Cape Town'
-            },
-            ratings: [],
-            averageRating: 4.5,
-            isActive: true,
-            createdAt: '2023-01-15T10:30:00Z',
-            updatedAt: '2023-01-15T10:30:00Z'
-          };
-          
-          setRecipient(mockUser);
-        }, 500);
+        // Find user in mock data
+        const foundUser = mockUsers.find(user => user._id === userId);
+        if (foundUser) {
+          setRecipient(foundUser);
+        }
       }
       
-      // Mock fetch listing
+      // Mock fetch listing if specified
       if (listingId) {
         try {
           const fetchedListing = await ListingService.getListingById(listingId);
@@ -81,6 +126,12 @@ export default function NewConversationScreen() {
           if (fetchedListing && !userId) {
             if (typeof fetchedListing.user !== 'string') {
               setRecipient(fetchedListing.user as User);
+            } else {
+              // Find user in mock data
+              const foundUser = mockUsers.find(user => user._id === fetchedListing.user);
+              if (foundUser) {
+                setRecipient(foundUser);
+              }
             }
           }
           
@@ -89,6 +140,12 @@ export default function NewConversationScreen() {
         } catch (error) {
           console.error('Error fetching listing:', error);
         }
+      }
+      
+      // If no recipient was specified, show user selection
+      if (!userId && !listingId) {
+        setShowUserSelection(true);
+        setAvailableUsers(mockUsers);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -120,10 +177,82 @@ export default function NewConversationScreen() {
     }
   };
   
+  const selectUser = (user: User) => {
+    setRecipient(user);
+    setShowUserSelection(false);
+  };
+  
+  const filteredUsers = searchQuery 
+    ? availableUsers.filter(user => 
+        user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.username.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : availableUsers;
+  
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
         <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+  
+  // Show user selection if no recipient is set
+  if (showUserSelection) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={[styles.searchInput, { backgroundColor: colors.background.card, color: colors.text.primary }]}
+            placeholder="Search for a user..."
+            placeholderTextColor={colors.text.muted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+        
+        <FlatList
+          data={filteredUsers}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.userItem, { backgroundColor: colors.background.card }]}
+              onPress={() => selectUser(item)}
+            >
+              <View style={styles.avatarContainer}>
+                {item.avatar ? (
+                  <View style={styles.avatar}>
+                    <Text style={{ fontSize: 20, color: '#fff' }}>
+                      {item.fullName.charAt(0)}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                    <Text style={{ fontSize: 20, color: '#000' }}>
+                      {item.fullName.charAt(0)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              
+              <View style={styles.userInfo}>
+                <Text style={[styles.userName, { color: colors.text.primary }]}>
+                  {item.fullName}
+                </Text>
+                <Text style={[styles.userUsername, { color: colors.text.secondary }]}>
+                  @{item.username}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
+                No users found
+              </Text>
+            </View>
+          )}
+        />
       </View>
     );
   }
@@ -156,7 +285,6 @@ export default function NewConversationScreen() {
           <View style={styles.avatarContainer}>
             {recipient.avatar ? (
               <View style={styles.avatar}>
-                {/* In a real app, this would be an Image component */}
                 <Text style={{ fontSize: 20, color: '#fff' }}>
                   {recipient.fullName.charAt(0)}
                 </Text>
@@ -357,10 +485,49 @@ const styles = StyleSheet.create({
     fontSize: FONT.sizes.large,
     textAlign: 'center',
     marginBottom: SPACING.large,
+    padding: SPACING.large,
   },
   button: {
-    padding: SPACING.medium,
+    alignSelf: 'center',
+    paddingHorizontal: SPACING.large,
+    paddingVertical: SPACING.medium,
     borderRadius: SIZES.borderRadius.medium,
+  },
+  searchContainer: {
+    padding: SPACING.medium,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  searchInput: {
+    paddingHorizontal: SPACING.medium,
+    paddingVertical: SPACING.small,
+    borderRadius: SIZES.borderRadius.medium,
+    fontSize: FONT.sizes.medium,
+  },
+  userItem: {
+    flexDirection: 'row',
+    padding: SPACING.medium,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: FONT.sizes.medium,
+    fontWeight: 'bold',
+    marginBottom: SPACING.xs,
+  },
+  userUsername: {
+    fontSize: FONT.sizes.small,
+  },
+  emptyContainer: {
+    padding: SPACING.large,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: FONT.sizes.medium,
+    textAlign: 'center',
   },
 });

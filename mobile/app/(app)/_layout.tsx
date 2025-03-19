@@ -108,14 +108,21 @@ export default function AppLayout() {
       />
 
       <Tabs.Screen 
+        name="marketplace/create" 
+        options={{ 
+          href: null, 
+        }} 
+      />
+
+      <Tabs.Screen 
         name="transactions/[id]" 
         options={{ 
           href: null, 
         }} 
       />
-      
+
       <Tabs.Screen 
-        name="marketplace/create" 
+        name="transactions/new" 
         options={{ 
           href: null, 
         }} 
