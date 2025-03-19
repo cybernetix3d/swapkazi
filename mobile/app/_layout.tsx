@@ -1,3 +1,5 @@
+// Path: mobile/app/_layout.tsx
+
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,18 +12,14 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   
   const [fontsLoaded] = useFonts({
-    // You could add custom fonts here
-    // 'Ubuntu-Regular': require('../assets/fonts/Ubuntu-Regular.ttf'),
-    // 'Ubuntu-Medium': require('../assets/fonts/Ubuntu-Medium.ttf'),
-    // 'Ubuntu-Bold': require('../assets/fonts/Ubuntu-Bold.ttf'),
+    // Your fonts here
   });
 
   useEffect(() => {
-    // Add any app initialization logic here
+    // App initialization logic
   }, []);
 
   if (!fontsLoaded) {
-    // We can return a loading screen here if needed
     return null;
   }
 
@@ -29,7 +27,7 @@ export default function RootLayout() {
     <ThemeProvider forcedTheme="dark">
       <AuthProvider>
         <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }} />
+        <Stack screenOptions={{ headerShown: false }} /> {/* Hide ALL headers at the root level */}
       </AuthProvider>
     </ThemeProvider>
   );

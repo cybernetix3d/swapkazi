@@ -1,3 +1,5 @@
+// Path: mobile/app/(app)/_layout.tsx
+
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -81,6 +83,42 @@ export default function AppLayout() {
             <FontAwesome5 name="user" size={size} color={color} />
           ),
         }}
+      />
+      
+      {/* Hide these routes from the tab bar */}
+      <Tabs.Screen 
+        name="messages/[id]" 
+        options={{ 
+          href: null,  // This prevents the tab from showing
+        }} 
+      />
+      
+      <Tabs.Screen 
+        name="messages/new" 
+        options={{ 
+          href: null, 
+        }} 
+      />
+      
+      <Tabs.Screen 
+        name="marketplace/[id]" 
+        options={{ 
+          href: null, 
+        }} 
+      />
+
+      <Tabs.Screen 
+        name="transactions/[id]" 
+        options={{ 
+          href: null, 
+        }} 
+      />
+      
+      <Tabs.Screen 
+        name="marketplace/create" 
+        options={{ 
+          href: null, 
+        }} 
       />
     </Tabs>
   );
