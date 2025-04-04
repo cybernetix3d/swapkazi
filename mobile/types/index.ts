@@ -56,6 +56,19 @@ export interface RegisterData {
   skills?: string[];
 }
 
+export interface UpdateProfileData {
+  fullName?: string;
+  bio?: string;
+  avatar?: string;
+  phoneNumber?: string;
+  skills?: string[];
+  location?: {
+    coordinates: [number, number]; // [longitude, latitude]
+    address: string;
+  };
+  password?: string;
+}
+
 export interface AuthResponse {
   token: string;
   user: User;
@@ -139,16 +152,24 @@ export interface ListingFormData {
 
 export interface ListingFilter {
   category?: ListingCategory;
+  subCategory?: string;
   listingType?: ListingType;
   exchangeType?: ExchangeType;
+  condition?: ItemCondition;
   priceMin?: number;
   priceMax?: number;
+  minPrice?: string | number; // For API compatibility
+  maxPrice?: string | number; // For API compatibility
   nearMe?: boolean;
-  distance?: number;
+  distance?: number | string;
   searchTerm?: string;
-  sortBy?: 'newest' | 'oldest' | 'priceAsc' | 'priceDesc';
-  page?: number;
-  limit?: number;
+  query?: string; // For API compatibility
+  longitude?: number | string;
+  latitude?: number | string;
+  sortBy?: 'newest' | 'oldest' | 'priceAsc' | 'priceDesc' | 'price_low' | 'price_high' | 'distance' | 'relevance' | string;
+  order?: 'asc' | 'desc';
+  page?: number | string;
+  limit?: number | string;
   isFeatured?: boolean;
 }
 

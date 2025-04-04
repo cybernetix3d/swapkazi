@@ -49,6 +49,29 @@ const createListing = async (req, res) => {
       }).filter(img => img !== null);
     }
 
+    // Validate that all images are from our Firebase Storage or other trusted sources
+    const validImageDomains = [
+      'firebasestorage.googleapis.com',
+      'storage.googleapis.com',
+      'via.placeholder.com' // For testing
+    ];
+
+    const allImagesValid = formattedImages.every(img => {
+      try {
+        const url = new URL(img.url);
+        return validImageDomains.some(domain => url.hostname.includes(domain));
+      } catch (e) {
+        return false;
+      }
+    });
+
+    if (formattedImages.length > 0 && !allImagesValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'One or more image URLs are not from trusted sources. Please upload images using the /api/upload endpoints.'
+      });
+    }
+
     console.log('Formatted images:', formattedImages);
 
     // Create new listing
@@ -212,8 +235,40 @@ const updateListing = async (req, res) => {
     if (description) listing.description = description;
     if (category) listing.category = category;
     if (subCategory !== undefined) listing.subCategory = subCategory;
-    // Format images to match the schema
+    // Handle images update
     if (images && Array.isArray(images)) {
+      // Get the deleteFile utility
+      const { deleteFile } = require('../utils/fileUpload');
+
+      // Find images that were removed
+      const oldImageUrls = listing.images.map(img => img.url);
+      const newImageUrls = images
+        .filter(img => img && (typeof img === 'string' || (typeof img === 'object' && img.url)))
+        .map(img => typeof img === 'string' ? img : img.url);
+
+      // Identify removed images
+      const removedImageUrls = oldImageUrls.filter(url => !newImageUrls.includes(url));
+
+      // Delete removed images from Firebase Storage
+      if (removedImageUrls.length > 0) {
+        console.log(`Deleting ${removedImageUrls.length} removed images`);
+
+        // Delete each removed image
+        const deletePromises = removedImageUrls.map(url => {
+          if (url && url.includes('firebasestorage.googleapis.com')) {
+            return deleteFile(url).catch(err => {
+              console.warn(`Failed to delete image ${url}:`, err);
+              return false; // Continue with other deletions even if one fails
+            });
+          }
+          return Promise.resolve(true); // Skip non-Firebase URLs
+        });
+
+        // Wait for all image deletions to complete
+        await Promise.all(deletePromises);
+      }
+
+      // Format new images to match the schema
       const formattedImages = images.map(img => {
         // If image is already in the correct format
         if (typeof img === 'object' && img.url) {
@@ -260,11 +315,31 @@ const deleteListing = async (req, res) => {
       return res.status(401).json({ message: 'Not authorized to delete this listing' });
     }
 
+    // Delete associated images from Firebase Storage
+    if (listing.images && listing.images.length > 0) {
+      const { deleteFile } = require('../utils/fileUpload');
+
+      // Delete each image
+      const deletePromises = listing.images.map(image => {
+        if (image.url && image.url.includes('firebasestorage.googleapis.com')) {
+          return deleteFile(image.url).catch(err => {
+            console.warn(`Failed to delete image ${image.url}:`, err);
+            return false; // Continue with other deletions even if one fails
+          });
+        }
+        return Promise.resolve(true); // Skip non-Firebase URLs
+      });
+
+      // Wait for all image deletions to complete
+      await Promise.all(deletePromises);
+    }
+
+    // Delete the listing from the database
     await listing.deleteOne();
-    res.json({ message: 'Listing removed' });
+    res.json({ success: true, message: 'Listing and associated images removed' });
   } catch (error) {
     console.error('Delete listing error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -282,34 +357,137 @@ const getUserListings = async (req, res) => {
   }
 };
 
-// @desc    Get nearby listings
+// @desc    Get nearby listings with advanced filtering
 // @route   GET /api/listings/nearby
 // @access  Private
 const getNearbyListings = async (req, res) => {
   try {
-    const { longitude, latitude, distance = 10000 } = req.query; // distance in meters, default 10km
+    console.log('Get nearby listings request received');
+    console.log('Query params:', req.query);
+
+    const {
+      longitude,              // User's longitude
+      latitude,               // User's latitude
+      distance = 10000,       // Search radius in meters (default 10km)
+      category,               // Optional category filter
+      subCategory,            // Optional sub-category filter
+      exchangeType,           // Optional exchange type filter
+      listingType,            // Optional listing type filter
+      minPrice,               // Optional minimum price filter
+      maxPrice,               // Optional maximum price filter
+      sortBy = 'distance',    // Sort field (distance, price, date)
+      page = 1,               // Page number
+      limit = 20              // Results per page
+    } = req.query;
 
     if (!longitude || !latitude) {
-      return res.status(400).json({ message: 'Longitude and latitude are required' });
+      return res.status(400).json({
+        success: false,
+        message: 'Longitude and latitude are required'
+      });
     }
 
-    const listings = await Listing.find({
+    // Parse coordinates
+    const coords = [
+      parseFloat(longitude),
+      parseFloat(latitude)
+    ];
+
+    // Build filter object
+    const filter = {
       isActive: true,
       location: {
         $near: {
           $geometry: {
             type: 'Point',
-            coordinates: [parseFloat(longitude), parseFloat(latitude)],
+            coordinates: coords
           },
-          $maxDistance: parseInt(distance),
-        },
-      },
-    }).populate('user', 'username fullName avatar');
+          $maxDistance: parseInt(distance)
+        }
+      }
+    };
 
-    res.json(listings);
+    // Add optional filters
+    if (category) filter.category = category;
+    if (subCategory) filter.subCategory = subCategory;
+    if (exchangeType) filter.exchangeType = exchangeType;
+    if (listingType) filter.listingType = listingType;
+
+    // Add price range filter
+    if (minPrice || maxPrice) {
+      filter.talentPrice = {};
+      if (minPrice) filter.talentPrice.$gte = parseInt(minPrice);
+      if (maxPrice) filter.talentPrice.$lte = parseInt(maxPrice);
+    }
+
+    console.log('Nearby filter:', JSON.stringify(filter, null, 2));
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Build sort options
+    let sortOptions = {};
+
+    // When using $near, MongoDB automatically sorts by distance
+    // We only need to specify sort if we want a different order
+    if (sortBy === 'price_asc') {
+      sortOptions.talentPrice = 1;
+    } else if (sortBy === 'price_desc') {
+      sortOptions.talentPrice = -1;
+    } else if (sortBy === 'date') {
+      sortOptions.createdAt = -1;
+    }
+    // For 'distance' sort, we rely on MongoDB's default $near behavior
+
+    // Execute query
+    const listings = await Listing.find(filter)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('user', 'username fullName avatar location');
+
+    // Get total count for pagination
+    const total = await Listing.countDocuments(filter);
+
+    // Import geo utilities
+    const { calculateDistance, formatDistance } = require('../utils/geoUtils');
+
+    // Calculate distance for each listing
+    const listingsWithDistance = listings.map(listing => {
+      const listingObj = listing.toObject();
+
+      // Calculate distance in kilometers
+      if (listing.location && listing.location.coordinates) {
+        // Calculate actual distance
+        const distanceKm = calculateDistance(coords, listing.location.coordinates);
+
+        // Add both numeric and formatted distance to the listing
+        listingObj.distance = distanceKm;
+        listingObj.distanceFormatted = formatDistance(distanceKm);
+      }
+
+      return listingObj;
+    });
+
+    // Format response to match mobile app expectations
+    const response = {
+      success: true,
+      data: listingsWithDistance,
+      count: listings.length,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    };
+
+    console.log(`Found ${listings.length} nearby listings out of ${total} total`);
+    res.json(response);
   } catch (error) {
     console.error('Get nearby listings error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
   }
 };
 
@@ -349,69 +527,206 @@ const toggleLikeListing = async (req, res) => {
   }
 };
 
-// @desc    Search listings
+// @desc    Search listings with advanced filtering
 // @route   GET /api/listings/search
 // @access  Public
 const searchListings = async (req, res) => {
   try {
-    const { query, category, exchangeType } = req.query;
+    console.log('Search listings request received');
+    console.log('Query params:', req.query);
 
-    let searchQuery = { isActive: true };
+    const {
+      query,                  // Text search term
+      category,               // Category filter
+      subCategory,            // Sub-category filter
+      exchangeType,           // Exchange type filter
+      listingType,            // Listing type filter
+      condition,              // Condition filter
+      minPrice,               // Minimum talent price
+      maxPrice,               // Maximum talent price
+      longitude,              // User's longitude for location-based search
+      latitude,               // User's latitude for location-based search
+      distance = 50000,       // Search radius in meters (default 50km)
+      sortBy = 'createdAt',   // Sort field
+      order = 'desc',         // Sort order
+      page = 1,               // Page number
+      limit = 20,             // Results per page
+      includeInactive = false // Whether to include inactive listings (admin only)
+    } = req.query;
 
+    // Build filter object
+    let filter = { isActive: true };
+
+    // Only admins can see inactive listings
+    if (includeInactive === 'true' && req.user && req.user.role === 'admin') {
+      delete filter.isActive;
+    }
+
+    // Text search (title, description, skills)
     if (query) {
-      searchQuery.$or = [
-        { title: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } },
-      ];
+      // Use MongoDB text search for better performance and relevance
+      if (query.length >= 3) { // Only use text search for queries with 3+ characters
+        filter.$text = { $search: query };
+      } else {
+        // For shorter queries, use regex for more flexible matching
+        filter.$or = [
+          { title: { $regex: query, $options: 'i' } },
+          { description: { $regex: query, $options: 'i' } },
+          { swapFor: { $regex: query, $options: 'i' } }
+        ];
+      }
     }
 
-    if (category) {
-      searchQuery.category = category;
+    // Category filters
+    if (category) filter.category = category;
+    if (subCategory) filter.subCategory = subCategory;
+
+    // Type filters
+    if (listingType) filter.listingType = listingType;
+    if (exchangeType) filter.exchangeType = exchangeType;
+    if (condition) filter.condition = condition;
+
+    // Price range filters
+    if (minPrice || maxPrice) {
+      filter.talentPrice = {};
+      if (minPrice) filter.talentPrice.$gte = parseInt(minPrice);
+      if (maxPrice) filter.talentPrice.$lte = parseInt(maxPrice);
     }
 
-    if (exchangeType) {
-      searchQuery.exchangeType = exchangeType;
+    // Location-based search
+    if (longitude && latitude) {
+      filter.location = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(longitude), parseFloat(latitude)]
+          },
+          $maxDistance: parseInt(distance)
+        }
+      };
     }
 
-    const listings = await Listing.find(searchQuery)
-      .sort({ createdAt: -1 })
-      .populate('user', 'username fullName avatar');
+    console.log('Search filter:', JSON.stringify(filter, null, 2));
 
-    res.json(listings);
+    // Build sort object
+    const sortOptions = {};
+
+    // Handle special sort cases
+    if (sortBy === 'price') {
+      sortOptions.talentPrice = order === 'asc' ? 1 : -1;
+    } else if (sortBy === 'distance' && longitude && latitude) {
+      // Distance sorting is handled by the $near operator
+      // No additional sort needed
+    } else if (sortBy === 'relevance' && query && query.length >= 3) {
+      // For text search, we can use the text score for relevance sorting
+      sortOptions.score = { $meta: 'textScore' };
+    } else {
+      // Default sorting
+      sortOptions[sortBy] = order === 'asc' ? 1 : -1;
+    }
+
+    console.log('Sort options:', sortOptions);
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Build the query
+    let queryBuilder = Listing.find(filter);
+
+    // Add text score projection for relevance sorting
+    if (sortBy === 'relevance' && query && query.length >= 3) {
+      queryBuilder = queryBuilder.select({ score: { $meta: 'textScore' } });
+    }
+
+    // Execute query with pagination, sorting, and population
+    const listings = await queryBuilder
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('user', 'username fullName avatar location');
+
+    // Get total count for pagination
+    const total = await Listing.countDocuments(filter);
+
+    // Format response to match mobile app expectations
+    const response = {
+      success: true,
+      data: listings,
+      count: listings.length,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    };
+
+    console.log(`Found ${listings.length} listings out of ${total} total`);
+    res.json(response);
   } catch (error) {
     console.error('Search listings error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
   }
 };
 
 // @desc    Upload listing image
 // @route   POST /api/listings/upload
 // @access  Private
+// Note: This is a legacy endpoint. Use /api/upload/listing instead.
 const uploadImage = async (req, res) => {
   try {
     console.log('Upload image request received');
-
-    // In a real implementation, you would upload the image to a cloud storage service
-    // like AWS S3, Google Cloud Storage, or Cloudinary
-    // For now, we'll just return a mock URL
+    console.log('Warning: This endpoint is deprecated. Use /api/upload/listing instead.');
 
     // Check if image data is provided
     if (!req.body.image) {
-      return res.status(400).json({ message: 'No image data provided' });
+      return res.status(400).json({
+        success: false,
+        message: 'No image data provided. Use /api/upload/listing with multipart/form-data instead.'
+      });
     }
 
-    // Mock response - in a real app, this would be the URL from the cloud storage
-    const imageUrl = `https://via.placeholder.com/400?text=Listing+Image`;
+    // For backward compatibility, we'll still handle base64 images if provided
+    // Extract the base64 data and file type
+    const matches = req.body.image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid image format. Expected base64 data URI.'
+      });
+    }
+
+    // Get the file type and base64 data
+    const fileType = matches[1];
+    const base64Data = matches[2];
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Create a temporary file object that mimics multer's file object
+    const tempFile = {
+      originalname: `listing-${Date.now()}.${fileType.split('/')[1] || 'jpg'}`,
+      buffer,
+      mimetype: fileType
+    };
+
+    // Use our existing uploadFile utility
+    const { uploadFile } = require('../utils/fileUpload');
+    const fileUrl = await uploadFile(tempFile, 'listings');
 
     res.json({
       success: true,
       data: {
-        url: imageUrl
+        url: fileUrl
       }
     });
   } catch (error) {
     console.error('Upload image error:', error);
-    res.status(500).json({ message: 'Failed to upload image', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload image',
+      error: error.message
+    });
   }
 };
 
@@ -427,3 +742,7 @@ module.exports = {
   searchListings,
   uploadImage,
 };
+
+
+
+

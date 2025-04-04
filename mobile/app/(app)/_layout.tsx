@@ -44,7 +44,7 @@ export default function AppLayout() {
           ),
         }}
       />
-      
+
       <Tabs.Screen
         name="marketplace/index"
         options={{
@@ -54,7 +54,7 @@ export default function AppLayout() {
           ),
         }}
       />
-      
+
       <Tabs.Screen
         name="messages/index"
         options={{
@@ -64,7 +64,7 @@ export default function AppLayout() {
           ),
         }}
       />
-      
+
       <Tabs.Screen
         name="transactions/index"
         options={{
@@ -74,7 +74,7 @@ export default function AppLayout() {
           ),
         }}
       />
-      
+
       <Tabs.Screen
         name="profile/index"
         options={{
@@ -84,49 +84,76 @@ export default function AppLayout() {
           ),
         }}
       />
-      
-      {/* Hide these routes from the tab bar */}
-      <Tabs.Screen 
-        name="messages/[id]" 
-        options={{ 
-          href: null,  // This prevents the tab from showing
-        }} 
-      />
-      
-      <Tabs.Screen 
-        name="messages/new" 
-        options={{ 
-          href: null, 
-        }} 
-      />
-      
-      <Tabs.Screen 
-        name="marketplace/[id]" 
-        options={{ 
-          href: null, 
-        }} 
+
+      <Tabs.Screen
+        name="messages/[id]"
+        options={{
+          href: null,  // This prevents the tab from showing in the tab bar, but allows it to be accessed via the URL
+        }}
       />
 
-      <Tabs.Screen 
-        name="marketplace/create" 
-        options={{ 
-          href: null, 
-        }} 
+      <Tabs.Screen
+        name="messages/new"
+        options={{
+          href: null,
+        }}
       />
 
-      <Tabs.Screen 
-        name="transactions/[id]" 
-        options={{ 
-          href: null, 
-        }} 
+      <Tabs.Screen
+        name="marketplace/[id]"
+        options={{
+          href: null,
+        }}
       />
 
-      <Tabs.Screen 
-        name="transactions/new" 
-        options={{ 
-          href: null, 
-        }} 
+      <Tabs.Screen
+        name="marketplace/create"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="transactions/[id]"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="transactions/new"
+        options={{
+          href: null,
+        }}
+      />
+
+        <Tabs.Screen
+        name="profile/[id]"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile/edit"
+        options={{
+          href: null,
+          headerTitle: "Edit Profile",
+          headerShown: true,
+          // This is the key part - hide the tab bar for this screen
+          tabBarStyle: { display: 'none' }
+        }}
+      />
+
+      {/* Hide filters screen from tab bar */}
+      <Tabs.Screen
+        name="marketplace/filters"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' }
+        }}
       />
     </Tabs>
+
   );
 }

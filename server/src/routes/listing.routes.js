@@ -60,8 +60,11 @@ router.delete('/:id', auth, deleteListing);
 router.post('/:id/like', auth, toggleLikeListing);
 
 // @route   POST /api/listings/upload
-// @desc    Upload listing image
+// @desc    Upload listing image (DEPRECATED - use /api/upload/listing instead)
 // @access  Private
-router.post('/upload', auth, uploadImage);
+router.post('/upload', auth, (req, res, next) => {
+  console.warn('DEPRECATED ENDPOINT: /api/listings/upload is deprecated. Use /api/upload/listing instead.');
+  next();
+}, uploadImage);
 
 module.exports = router;

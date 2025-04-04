@@ -1,5 +1,5 @@
 import api, { handleApiError } from './api';
-import { User, ApiResponse, PaginatedResponse } from '../types';
+import { User, ApiResponse, PaginatedResponse, UpdateProfileData } from '../types';
 import config from '../config';
 
 /**
@@ -11,7 +11,7 @@ export const getUserById = async (id: string): Promise<User> => {
     if (config.enableMockData) {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Return mock user data
       return {
         _id: id,
@@ -32,7 +32,7 @@ export const getUserById = async (id: string): Promise<User> => {
         updatedAt: new Date().toISOString()
       };
     }
-    
+
     // Real API call
     const response = await api.get<ApiResponse<User>>(`/users/${id}`);
 
@@ -60,7 +60,7 @@ export const getNearbyUsers = async (
     if (config.enableMockData) {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       // Return mock data
       return {
         success: true,
@@ -88,7 +88,7 @@ export const getNearbyUsers = async (
         totalPages: 1
       };
     }
-    
+
     // Real API call
     const response = await api.get<PaginatedResponse<User>>('/users/nearby', {
       params: {
@@ -101,6 +101,53 @@ export const getNearbyUsers = async (
 
     if (!response.data.success) {
       throw new Error(response.data.message || 'Failed to fetch nearby users');
+    }
+
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Update user profile
+ */
+export const updateProfile = async (profileData: UpdateProfileData): Promise<User> => {
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Return mock updated user
+      return {
+        _id: 'mock_user_id',
+        username: 'updated_username',
+        email: 'user@example.com',
+        fullName: profileData.fullName || 'Updated User',
+        bio: profileData.bio || 'Updated bio',
+        avatar: profileData.avatar || 'https://example.com/avatar.jpg',
+        phoneNumber: profileData.phoneNumber || '+27123456789',
+        skills: profileData.skills || ['Updated skill'],
+        talentBalance: 100,
+        location: profileData.location || {
+          type: 'Point',
+          coordinates: [18.4241, -33.9249],
+          address: 'Cape Town, South Africa'
+        },
+        ratings: [],
+        averageRating: 4.5,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    // Real API call
+    const response = await api.put<User>('/users/profile', profileData);
+
+    if (!response.data) {
+      throw new Error('Failed to update profile');
     }
 
     return response.data;

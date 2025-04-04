@@ -124,11 +124,41 @@ const listingSchema = new mongoose.Schema(
 );
 
 // Create indexes
-listingSchema.index({ title: 'text', description: 'text' });
+// Text index for search functionality with weights
+listingSchema.index(
+  {
+    title: 'text',
+    description: 'text',
+    swapFor: 'text',
+    subCategory: 'text'
+  },
+  {
+    weights: {
+      title: 10,        // Title is most important
+      description: 5,   // Description is next
+      swapFor: 3,       // What they want to swap for
+      subCategory: 2    // Sub-category is least important
+    },
+    name: 'listing_text_index'
+  }
+);
+
+// Geospatial index for location-based queries
 listingSchema.index({ location: '2dsphere' });
+
+// Other indexes for common query patterns
 listingSchema.index({ category: 1 });
 listingSchema.index({ user: 1 });
 listingSchema.index({ createdAt: -1 });
+listingSchema.index({ talentPrice: 1 });
+listingSchema.index({ exchangeType: 1 });
+listingSchema.index({ listingType: 1 });
+listingSchema.index({ isActive: 1 });
+
+// Compound indexes for common filter combinations
+listingSchema.index({ category: 1, createdAt: -1 });
+listingSchema.index({ user: 1, isActive: 1 });
+listingSchema.index({ exchangeType: 1, talentPrice: 1 });
 
 const Listing = mongoose.model('Listing', listingSchema);
 

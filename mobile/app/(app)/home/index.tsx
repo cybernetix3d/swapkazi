@@ -139,11 +139,11 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: colors.background.card }]}
-          onPress={() => router.push('/(app)/marketplace/search')}
+          onPress={() => router.push('/(app)/marketplace/filters')}
         >
-          <FontAwesome5 name="search" size={24} color={colors.secondary} />
+          <FontAwesome5 name="filter" size={24} color={colors.secondary} />
           <Text style={[styles.actionText, { color: colors.text.primary }]}>
-            Find Items
+            Filter Items
           </Text>
         </TouchableOpacity>
 

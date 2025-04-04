@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  TextInput
+  TextInput,
+  ScrollView
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
@@ -44,6 +45,10 @@ export default function MarketplaceScreen() {
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<ListingCategory | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+
+  // Get search params from URL
+  const params = useLocalSearchParams<Record<string, string>>();
 
   // Available categories for filtering
   const categories: ListingCategory[] = [
@@ -51,6 +56,38 @@ export default function MarketplaceScreen() {
     'Electronics', 'Clothing', 'Furniture', 'Books',
     'Tools', 'Education', 'Transportation', 'Other'
   ];
+
+  // Process URL params on mount - only once
+  useEffect(() => {
+    if (params) {
+      const newFilters: Record<string, string> = {};
+
+      // Process category
+      if (params.category && categories.includes(params.category as ListingCategory)) {
+        setSelectedCategory(params.category as ListingCategory);
+      } else if (params.category === null || params.category === undefined) {
+        // Clear category if not specified
+        setSelectedCategory(null);
+      }
+
+      // Process other filters
+      ['exchangeType', 'listingType', 'condition', 'minPrice', 'maxPrice', 'distance', 'sortBy'].forEach(key => {
+        if (params[key]) {
+          newFilters[key] = params[key];
+        }
+      });
+
+      // Set the new filters only if they're different from current filters
+      const currentFiltersStr = JSON.stringify(activeFilters);
+      const newFiltersStr = JSON.stringify(newFilters);
+
+      if (currentFiltersStr !== newFiltersStr) {
+        console.log('Setting active filters:', newFilters);
+        setActiveFilters(newFilters);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   // Fetch listings
   const fetchListings = useCallback(async (refresh = false) => {
@@ -64,10 +101,12 @@ export default function MarketplaceScreen() {
     }
 
     try {
+      // Build filters object
       const filters = {
         page: refresh ? 1 : page,
         limit: 10,
         category: selectedCategory || undefined,
+        ...activeFilters
       };
 
       console.log('Fetching listings with filters:', filters);
@@ -100,12 +139,27 @@ export default function MarketplaceScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, hasMore, loading, selectedCategory]);
+  }, [page, hasMore, loading, selectedCategory, activeFilters]);
 
-  // Initial fetch
+  // Fetch listings when component mounts or filters change
   useEffect(() => {
+    // Create a stable reference to the filters for dependency tracking
+    const filtersKey = JSON.stringify({
+      category: selectedCategory,
+      ...activeFilters
+    });
+
+    console.log('Fetching listings due to filter change or initial load');
     fetchListings(true);
-  }, [selectedCategory]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, JSON.stringify(activeFilters)]);
+
+  // Initial fetch on mount - only once
+  useEffect(() => {
+    console.log('Initial fetch on mount');
+    fetchListings(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle refresh
   const handleRefresh = () => {
@@ -140,55 +194,78 @@ export default function MarketplaceScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.background.card }]}>
-        <TextInput
-          style={[styles.searchInput, { color: colors.text.primary }]}
-          placeholder="Search listings..."
-          placeholderTextColor={colors.text.muted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-        <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-          <FontAwesome5 name="search" size={18} color={colors.text.primary} />
+      {/* Search and Filter Bar */}
+      <View style={[styles.searchFilterContainer, { backgroundColor: colors.background.card }]}>
+        <View style={[styles.searchContainer, { backgroundColor: colors.background.dark }]}>
+          <TextInput
+            style={[styles.searchInput, { color: colors.text.primary }]}
+            placeholder="Search listings..."
+            placeholderTextColor={colors.text.muted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+          <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+            <FontAwesome5 name="search" size={18} color={colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Filter Button */}
+        <TouchableOpacity
+          style={[styles.filterButton, { backgroundColor: colors.background.dark }]}
+          onPress={() => router.push('/(app)/marketplace/filters')}
+        >
+          <FontAwesome5 name="sliders-h" size={18} color={colors.text.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Categories Scroll */}
-      <FlatList
-        data={categories}
-        keyExtractor={(item) => item}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesList}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.categoryButton,
-              selectedCategory === item && { backgroundColor: colors.primary }
-            ]}
-            onPress={() => handleCategorySelect(item)}
-          >
-            <FontAwesome5
-              name={categoryIcons[item]}
-              size={16}
-              color={selectedCategory === item ? '#000' : colors.text.secondary}
-              style={styles.categoryIcon}
-            />
-            <Text
+      {/* Category Chips */}
+      <View style={styles.categoryChipsContainer}>
+        <Text style={[styles.categoryLabel, { color: colors.text.secondary }]}>Categories:</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesContainer}
+        >
+          {categories.map((item) => (
+            <TouchableOpacity
+              key={item}
               style={[
-                styles.categoryText,
-                { color: selectedCategory === item ? '#000' : colors.text.secondary }
+                styles.categoryChip,
+                selectedCategory === item && { backgroundColor: colors.primary }
               ]}
+              onPress={() => handleCategorySelect(item)}
             >
-              {item}
+              <FontAwesome5
+                name={categoryIcons[item]}
+                size={16}
+                color={selectedCategory === item ? '#000' : colors.text.secondary}
+                style={styles.categoryIcon}
+              />
+              <Text
+                style={[
+                  styles.categoryText,
+                  { color: selectedCategory === item ? '#000' : colors.text.secondary }
+                ]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        {selectedCategory && (
+          <TouchableOpacity
+            style={[styles.clearFilterChip, { borderColor: colors.primary }]}
+            onPress={() => setSelectedCategory(null)}
+          >
+            <Text style={[styles.clearFilterText, { color: colors.primary }]}>
+              Clear
             </Text>
+            <FontAwesome5 name="times" size={12} color={colors.primary} style={{ marginLeft: 4 }} />
           </TouchableOpacity>
         )}
-        contentContainerStyle={styles.categoriesContainer}
-      />
+      </View>
 
       {/* Create Listing Button */}
       <TouchableOpacity
@@ -221,15 +298,60 @@ export default function MarketplaceScreen() {
               <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
                 No listings found
               </Text>
-              {selectedCategory && (
+              <Text style={[styles.emptySubText, { color: colors.text.muted }]}>
+                {(selectedCategory || Object.keys(activeFilters).length > 0) ?
+                  'Try removing some filters to see more listings' :
+                  'There are no listings available at the moment'}
+              </Text>
+              {(selectedCategory || Object.keys(activeFilters).length > 0) && (
                 <TouchableOpacity
-                  style={[styles.clearFilterButton, { borderColor: colors.primary }]}
-                  onPress={() => setSelectedCategory(null)}
+                  style={[styles.clearFilterButton, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    setSelectedCategory(null);
+                    setActiveFilters({});
+                    router.push('/marketplace');
+                  }}
                 >
-                  <Text style={[styles.clearFilterText, { color: colors.primary }]}>
-                    Clear Filter
+                  <Text style={[styles.clearFilterText, { color: '#000' }]}>
+                    Clear All Filters
                   </Text>
                 </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.refreshButton, { borderColor: colors.text.secondary }]}
+                onPress={() => fetchListings(true)}
+              >
+                <FontAwesome5 name="sync" size={16} color={colors.text.secondary} style={styles.refreshIcon} />
+                <Text style={[styles.refreshText, { color: colors.text.secondary }]}>
+                  Refresh
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null
+        }
+        ListHeaderComponent={
+          listings.length > 0 ? (
+            <View>
+              {activeFilters.condition && activeFilters.condition !== 'New' && (
+                <View style={[styles.noteContainer, { backgroundColor: colors.background.card }]}>
+                  <Text style={[styles.noteText, { color: colors.primary }]}>
+                    Note: Showing "New" condition items as alternatives
+                  </Text>
+                </View>
+              )}
+              {activeFilters.exchangeType && activeFilters.exchangeType === 'Direct Swap' && (
+                <View style={[styles.noteContainer, { backgroundColor: colors.background.card }]}>
+                  <Text style={[styles.noteText, { color: colors.primary }]}>
+                    Note: Showing "Talent" exchange type as alternatives
+                  </Text>
+                </View>
+              )}
+              {selectedCategory && !['Services', 'Food', 'Education', 'Crafts'].includes(selectedCategory) && (
+                <View style={[styles.noteContainer, { backgroundColor: colors.background.card }]}>
+                  <Text style={[styles.noteText, { color: colors.primary }]}>
+                    Note: No listings in "{selectedCategory}" category. Showing all categories.
+                  </Text>
+                </View>
               )}
             </View>
           ) : null
@@ -251,12 +373,20 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: SPACING.medium,
   },
+  searchFilterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: SIZES.borderRadius.medium,
+    padding: SPACING.small,
+    marginBottom: SPACING.medium,
+  },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: SIZES.borderRadius.medium,
     paddingHorizontal: SPACING.medium,
-    marginBottom: SPACING.medium,
+    marginRight: SPACING.small,
   },
   searchInput: {
     flex: 1,
@@ -266,14 +396,27 @@ const styles = StyleSheet.create({
   searchButton: {
     padding: SPACING.small,
   },
-  categoriesList: {
-    maxHeight: 50,
+  filterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: SIZES.borderRadius.medium,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryChipsContainer: {
     marginBottom: SPACING.medium,
+  },
+  categoryLabel: {
+    fontSize: FONT.sizes.small,
+    fontWeight: 'bold',
+    marginBottom: SPACING.small,
+    paddingHorizontal: SPACING.small,
   },
   categoriesContainer: {
     paddingRight: SPACING.medium,
+    paddingLeft: SPACING.small,
   },
-  categoryButton: {
+  categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.medium,
@@ -281,6 +424,18 @@ const styles = StyleSheet.create({
     marginRight: SPACING.small,
     borderRadius: SIZES.borderRadius.round,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    height: 36,
+  },
+  clearFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.medium,
+    paddingVertical: SPACING.small,
+    marginTop: SPACING.small,
+    marginLeft: SPACING.small,
+    borderRadius: SIZES.borderRadius.round,
+    borderWidth: 1,
+    height: 36,
   },
   categoryIcon: {
     marginRight: SPACING.xs,
@@ -312,16 +467,52 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: FONT.sizes.large,
     marginTop: SPACING.medium,
+    marginBottom: SPACING.small,
+    textAlign: 'center',
+  },
+  emptySubText: {
+    fontSize: FONT.sizes.medium,
+    textAlign: 'center',
     marginBottom: SPACING.medium,
+    paddingHorizontal: SPACING.large,
+  },
+  noteText: {
+    fontSize: FONT.sizes.small,
+    textAlign: 'center',
+    marginBottom: SPACING.small,
+    fontStyle: 'italic',
+  },
+  noteContainer: {
+    padding: SPACING.small,
+    marginHorizontal: SPACING.medium,
+    marginBottom: SPACING.medium,
+    borderRadius: SIZES.borderRadius.small,
+    alignItems: 'center',
   },
   clearFilterButton: {
+    borderRadius: SIZES.borderRadius.medium,
+    paddingHorizontal: SPACING.medium,
+    paddingVertical: SPACING.small,
+    marginTop: SPACING.medium,
+  },
+  clearFilterText: {
+    fontWeight: 'bold',
+    fontSize: FONT.sizes.medium,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: SIZES.borderRadius.medium,
     paddingHorizontal: SPACING.medium,
     paddingVertical: SPACING.small,
+    marginTop: SPACING.medium,
   },
-  clearFilterText: {
-    fontWeight: 'bold',
+  refreshIcon: {
+    marginRight: SPACING.small,
+  },
+  refreshText: {
+    fontSize: FONT.sizes.medium,
   },
   loaderContainer: {
     padding: SPACING.large,

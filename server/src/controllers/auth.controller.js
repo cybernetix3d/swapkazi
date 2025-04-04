@@ -45,14 +45,24 @@ const registerUser = async (req, res) => {
 
     // Return user data with token
     if (user) {
+      const token = generateToken(user._id);
       const response = {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        avatar: user.avatar,
-        talentBalance: user.talentBalance,
-        token: generateToken(user._id),
+        token,
+        user: {
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          fullName: user.fullName,
+          avatar: user.avatar,
+          talentBalance: user.talentBalance,
+          skills: user.skills || [],
+          location: user.location,
+          ratings: user.ratings || [],
+          averageRating: user.averageRating || 0,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
       };
       console.log('User created successfully');
       return res.status(201).json(response);

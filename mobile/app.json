@@ -27,7 +27,12 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "static",
+      "babel": {
+        "include": ["@babel/preset-env", "@babel/preset-typescript"]
+      }
     },
     "plugins": [
       [

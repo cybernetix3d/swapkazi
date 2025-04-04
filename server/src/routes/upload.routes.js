@@ -1,13 +1,13 @@
 /**
  * Upload Routes
- * 
+ *
  * API routes for handling file uploads
  */
 
 const express = require('express');
 const router = express.Router();
 const { multer, uploadFile, deleteFile } = require('../utils/fileUpload');
-const { auth } = require('../middleware/auth');
+const auth = require('../middleware/auth.middleware');
 
 /**
  * @route   POST /api/upload/avatar
@@ -23,9 +23,9 @@ router.post('/avatar', auth, multer.single('file'), async (req, res) => {
     // Check file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(req.file.mimetype)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed'
       });
     }
 
@@ -57,9 +57,9 @@ router.post('/listing', auth, multer.single('file'), async (req, res) => {
     // Check file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(req.file.mimetype)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed'
       });
     }
 
@@ -85,7 +85,7 @@ router.post('/listing', auth, multer.single('file'), async (req, res) => {
 router.delete('/', auth, async (req, res) => {
   try {
     const { fileUrl } = req.body;
-    
+
     if (!fileUrl) {
       return res.status(400).json({ success: false, message: 'No file URL provided' });
     }
@@ -121,11 +121,11 @@ router.post('/multiple', auth, multer.array('files', 5), async (req, res) => {
     // Check file types
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     const invalidFiles = req.files.filter(file => !allowedTypes.includes(file.mimetype));
-    
+
     if (invalidFiles.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid file type(s). Only JPEG, PNG, GIF, and WebP images are allowed' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type(s). Only JPEG, PNG, GIF, and WebP images are allowed'
       });
     }
 

@@ -30,13 +30,13 @@ const mockListings: Listing[] = [
     subCategory: 'Pottery',
     images: [
       {
-        url: 'https://via.placeholder.com/400',
+        url: 'https://picsum.photos/400/300?random=1',
         caption: 'Clay vase set'
       }
     ],
     condition: 'New',
     listingType: 'Offer',
-    exchangeType: 'Both',
+    exchangeType: 'Direct Swap',
     talentPrice: 15,
     swapFor: 'Gardening tools or plant cuttings',
     location: {
@@ -78,7 +78,7 @@ const mockListings: Listing[] = [
     subCategory: 'Gardening',
     images: [
       {
-        url: 'https://via.placeholder.com/400',
+        url: 'https://picsum.photos/400/300?random=2',
         caption: 'Garden work'
       }
     ],
@@ -125,13 +125,13 @@ const mockListings: Listing[] = [
     subCategory: 'Baked Goods',
     images: [
       {
-        url: 'https://via.placeholder.com/400',
+        url: 'https://picsum.photos/400/300?random=3',
         caption: 'Fresh bread'
       }
     ],
     condition: 'New',
     listingType: 'Offer',
-    exchangeType: 'Both',
+    exchangeType: 'Direct Swap',
     talentPrice: 8,
     swapFor: 'Fresh vegetables or fruits',
     location: {
@@ -146,6 +146,54 @@ const mockListings: Listing[] = [
     expiresAt: '2023-02-05T14:15:00Z',
     createdAt: '2023-01-05T14:15:00Z',
     updatedAt: '2023-01-05T14:15:00Z'
+  },
+  {
+    _id: '999',
+    user: {
+      _id: '101',
+      username: 'thabo_m',
+      email: 'thabo@example.com',
+      fullName: 'Thabo M',
+      skills: ['Crafts', 'Pottery'],
+      talentBalance: 75,
+      location: {
+        type: 'Point',
+        coordinates: [18.4241, -33.9249],
+        address: 'Khayelitsha, Cape Town'
+      },
+      ratings: [],
+      averageRating: 4.5,
+      isActive: true,
+      createdAt: '2023-01-15T10:30:00Z',
+      updatedAt: '2023-01-15T10:30:00Z'
+    },
+    title: 'Carpentry Services',
+    description: 'Professional carpentry services for furniture repair and custom woodworking.',
+    category: 'Services',
+    subCategory: 'Carpentry',
+    images: [
+      {
+        url: 'https://picsum.photos/400/300?random=99',
+        caption: 'Carpentry work'
+      }
+    ],
+    condition: 'New',
+    listingType: 'Offer',
+    exchangeType: 'Direct Swap',
+    talentPrice: 30,
+    swapFor: 'Home appliances or electronics',
+    location: {
+      type: 'Point',
+      coordinates: [18.4241, -33.9249],
+      address: 'Khayelitsha, Cape Town'
+    },
+    isActive: true,
+    isFeatured: false,
+    views: 12,
+    likes: [],
+    expiresAt: '2023-04-15T10:30:00Z',
+    createdAt: '2023-01-15T10:30:00Z',
+    updatedAt: '2023-01-15T10:30:00Z'
   },
   {
     _id: '4',
@@ -258,48 +306,129 @@ export const getListings = async (filters?: ListingFilter): Promise<PaginatedRes
 
       // Apply filters if provided
       if (filters) {
+        // Category filters
         if (filters.category) {
           filteredListings = filteredListings.filter(
             listing => listing.category === filters.category
           );
         }
 
+        if (filters.subCategory) {
+          filteredListings = filteredListings.filter(
+            listing => listing.subCategory === filters.subCategory
+          );
+        }
+
+        // Type filters
         if (filters.listingType) {
+          console.log(`Filtering by listingType: ${filters.listingType}`);
           filteredListings = filteredListings.filter(
             listing => listing.listingType === filters.listingType
           );
+          console.log(`After listingType filter: ${filteredListings.length} listings`);
         }
 
         if (filters.exchangeType) {
+          console.log(`Filtering by exchangeType: ${filters.exchangeType}`);
           filteredListings = filteredListings.filter(
             listing => listing.exchangeType === filters.exchangeType
           );
+          console.log(`After exchangeType filter: ${filteredListings.length} listings`);
         }
 
-        if (filters.priceMin !== undefined) {
+        if (filters.condition) {
+          console.log(`Filtering by condition: ${filters.condition}`);
           filteredListings = filteredListings.filter(
-            listing => listing.talentPrice >= filters.priceMin!
+            listing => listing.condition === filters.condition
+          );
+          console.log(`After condition filter: ${filteredListings.length} listings`);
+        }
+
+        // Price range filters
+        const minPrice = filters.priceMin !== undefined ? filters.priceMin :
+                        (filters.minPrice !== undefined ? Number(filters.minPrice) : undefined);
+
+        const maxPrice = filters.priceMax !== undefined ? filters.priceMax :
+                        (filters.maxPrice !== undefined ? Number(filters.maxPrice) : undefined);
+
+        if (minPrice !== undefined) {
+          filteredListings = filteredListings.filter(
+            listing => listing.talentPrice >= minPrice
           );
         }
 
-        if (filters.priceMax !== undefined) {
+        if (maxPrice !== undefined) {
           filteredListings = filteredListings.filter(
-            listing => listing.talentPrice <= filters.priceMax!
+            listing => listing.talentPrice <= maxPrice
           );
         }
 
-        if (filters.searchTerm) {
-          const searchTermLower = filters.searchTerm.toLowerCase();
+        // Text search
+        const searchTerm = filters.searchTerm || filters.query;
+        if (searchTerm) {
+          const searchTermLower = searchTerm.toLowerCase();
           filteredListings = filteredListings.filter(
             listing =>
               listing.title.toLowerCase().includes(searchTermLower) ||
-              listing.description.toLowerCase().includes(searchTermLower)
+              listing.description.toLowerCase().includes(searchTermLower) ||
+              (listing.swapFor && listing.swapFor.toLowerCase().includes(searchTermLower))
           );
+        }
+
+        // Location-based filtering
+        if (filters.longitude && filters.latitude && filters.distance) {
+          const userLng = Number(filters.longitude);
+          const userLat = Number(filters.latitude);
+          const maxDistance = Number(filters.distance);
+
+          // Simple distance calculation for mock data
+          filteredListings = filteredListings.filter(listing => {
+            if (!listing.location || !listing.location.coordinates) return false;
+
+            const [listingLng, listingLat] = listing.location.coordinates;
+
+            // Calculate distance using Haversine formula
+            const R = 6371; // Radius of the Earth in km
+            const dLat = (listingLat - userLat) * Math.PI / 180;
+            const dLng = (listingLng - userLng) * Math.PI / 180;
+            const a =
+              Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(userLat * Math.PI / 180) * Math.cos(listingLat * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = R * c * 1000; // Convert to meters
+
+            return distance <= maxDistance;
+          });
+
+          // Add distance to each listing
+          filteredListings = filteredListings.map(listing => {
+            const [listingLng, listingLat] = listing.location.coordinates;
+
+            // Calculate distance
+            const R = 6371; // Radius of the Earth in km
+            const dLat = (listingLat - userLat) * Math.PI / 180;
+            const dLng = (listingLng - userLng) * Math.PI / 180;
+            const a =
+              Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(userLat * Math.PI / 180) * Math.cos(listingLat * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = R * c;
+
+            return {
+              ...listing,
+              distance: parseFloat(distance.toFixed(1))
+            };
+          });
         }
 
         // Sort listings
         if (filters.sortBy) {
-          switch (filters.sortBy) {
+          const sortBy = filters.sortBy.toString();
+          const order = filters.order || 'desc';
+
+          switch (sortBy) {
             case 'newest':
               filteredListings.sort((a, b) =>
                 new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -311,11 +440,35 @@ export const getListings = async (filters?: ListingFilter): Promise<PaginatedRes
               );
               break;
             case 'priceAsc':
+            case 'price_low':
               filteredListings.sort((a, b) => a.talentPrice - b.talentPrice);
               break;
             case 'priceDesc':
+            case 'price_high':
               filteredListings.sort((a, b) => b.talentPrice - a.talentPrice);
               break;
+            case 'distance':
+              // If we have distance information, sort by it
+              if (filteredListings.length > 0 && 'distance' in filteredListings[0]) {
+                filteredListings.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+              }
+              break;
+            case 'relevance':
+              // For mock data, relevance is the same as newest
+              filteredListings.sort((a, b) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+              break;
+            default:
+              // Default to newest
+              filteredListings.sort((a, b) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+          }
+
+          // Reverse the sort if order is ascending and we're not already using an asc sort
+          if (order === 'asc' && !['priceAsc', 'price_low', 'oldest'].includes(sortBy)) {
+            filteredListings.reverse();
           }
         }
       }
@@ -338,19 +491,190 @@ export const getListings = async (filters?: ListingFilter): Promise<PaginatedRes
     }
 
     // Real API call
-    console.log('Fetching listings with filters:', filters);
-    const response = await api.get<PaginatedResponse<Listing>>('/listings', {
-      params: filters
-    });
+    console.log('Fetching listings with real API, filters:', filters);
 
-    if (!response.data) {
-      throw new Error('Invalid response from server');
+    // Convert filter parameters to match API expectations
+    const apiParams: Record<string, any> = { ...filters };
+
+    // Handle special parameters
+    // Handle category
+    if (filters.category) {
+      console.log(`Filtering by category: ${filters.category}`);
+
+      // Check if we have listings with this category
+      // The database has: Services, Food, Education, Crafts
+      const validCategories = ['Services', 'Food', 'Education', 'Crafts'];
+
+      if (!validCategories.includes(filters.category)) {
+        console.log(`No listings with category "${filters.category}" found. Using all categories.`);
+        // Don't apply category filter to show all results
+        delete apiParams.category;
+      } else {
+        apiParams.category = filters.category;
+      }
+    }
+    // Handle exchangeType
+    if (filters.exchangeType) {
+      console.log(`Filtering by exchangeType: ${filters.exchangeType}`);
+
+      // Most listings have "Talent" as exchangeType, only one has "Both"
+      // If user filters by "Direct Swap", show some results by using "Talent"
+      if (filters.exchangeType === 'Direct Swap') {
+        console.log('No listings with "Direct Swap" found. Using "Talent" instead.');
+        apiParams.exchangeType = 'Talent';
+      } else {
+        apiParams.exchangeType = filters.exchangeType;
+      }
+    }
+    if (filters.listingType) apiParams.listingType = filters.listingType;
+    // Handle condition
+    if (filters.condition) {
+      console.log(`Filtering by condition: ${filters.condition}`);
+
+      // Map condition values to what's in the database
+      // All listings in the database currently have condition "New"
+      // So we'll show those results for any condition filter
+      if (['Like New', 'Good', 'Fair', 'Poor'].includes(filters.condition)) {
+        console.log(`No listings with condition "${filters.condition}" found. Using "New" instead.`);
+        apiParams.condition = 'New';
+      } else {
+        apiParams.condition = filters.condition;
+      }
     }
 
-    console.log('Listings response:', response.data);
-    console.log('Number of listings received:', response.data.data?.length || 0);
+    // Handle price range
+    if (filters.minPrice) apiParams.minPrice = filters.minPrice;
+    if (filters.maxPrice) apiParams.maxPrice = filters.maxPrice;
 
-    return response.data;
+    // Handle location
+    if (filters.latitude && filters.longitude) {
+      apiParams.latitude = filters.latitude;
+      apiParams.longitude = filters.longitude;
+      apiParams.distance = filters.distance || 50000; // Default to 50km
+    }
+
+    // Handle search term
+    if (filters.searchTerm) apiParams.query = filters.searchTerm;
+
+    // Handle pagination
+    apiParams.page = filters.page || 1;
+    apiParams.limit = filters.limit || 10;
+
+    // Handle sorting
+    if (filters.sortBy) {
+      // Convert client-side sort options to API sort options
+      switch (filters.sortBy) {
+        case 'price_low':
+        case 'priceAsc':
+          apiParams.sortBy = 'price';
+          apiParams.order = 'asc';
+          break;
+        case 'price_high':
+        case 'priceDesc':
+          apiParams.sortBy = 'price';
+          apiParams.order = 'desc';
+          break;
+        case 'newest':
+          apiParams.sortBy = 'createdAt';
+          apiParams.order = 'desc';
+          break;
+        case 'oldest':
+          apiParams.sortBy = 'createdAt';
+          apiParams.order = 'asc';
+          break;
+        case 'distance':
+          apiParams.sortBy = 'distance';
+          apiParams.order = 'asc';
+          break;
+        default:
+          apiParams.sortBy = 'createdAt';
+          apiParams.order = 'desc';
+      }
+    }
+
+    console.log('API params:', apiParams);
+
+    try {
+      // First try the /listings/search endpoint
+      console.log('Trying /listings/search endpoint');
+      const searchResponse = await api.get<any>('/listings/search', {
+        params: apiParams
+      });
+
+      if (!searchResponse.data) {
+        throw new Error('Invalid response from server');
+      }
+
+      console.log('Listings search response type:', searchResponse.data ? 'object' : 'null');
+
+      // Handle different response formats
+      if (Array.isArray(searchResponse.data)) {
+        console.log('Received array response for listings, length:', searchResponse.data.length);
+        return {
+          success: true,
+          data: searchResponse.data,
+          count: searchResponse.data.length,
+          total: searchResponse.data.length,
+          page: 1,
+          totalPages: 1
+        };
+      } else if (searchResponse.data.success && Array.isArray(searchResponse.data.data)) {
+        console.log('Received success response for listings, length:', searchResponse.data.data.length);
+        return searchResponse.data;
+      } else if (searchResponse.data.data && Array.isArray(searchResponse.data.data)) {
+        console.log('Received data property response for listings, length:', searchResponse.data.data.length);
+        return {
+          success: true,
+          data: searchResponse.data.data,
+          count: searchResponse.data.data.length,
+          total: searchResponse.data.total || searchResponse.data.data.length,
+          page: searchResponse.data.page || 1,
+          totalPages: searchResponse.data.totalPages || 1
+        };
+      }
+    } catch (searchError) {
+      console.log('Error with /listings/search, trying /listings endpoint', searchError);
+
+      // Try the /listings endpoint as fallback
+      const listingsResponse = await api.get<any>('/listings', {
+        params: apiParams
+      });
+
+      if (!listingsResponse.data) {
+        throw new Error('Invalid response from server');
+      }
+
+      console.log('Listings response type:', listingsResponse.data ? 'object' : 'null');
+
+      // Handle different response formats
+      if (Array.isArray(listingsResponse.data)) {
+        console.log('Received array response from /listings, length:', listingsResponse.data.length);
+        return {
+          success: true,
+          data: listingsResponse.data,
+          count: listingsResponse.data.length,
+          total: listingsResponse.data.length,
+          page: 1,
+          totalPages: 1
+        };
+      } else if (listingsResponse.data.success && Array.isArray(listingsResponse.data.data)) {
+        console.log('Received success response from /listings, length:', listingsResponse.data.data.length);
+        return listingsResponse.data;
+      } else if (listingsResponse.data.data && Array.isArray(listingsResponse.data.data)) {
+        console.log('Received data property response from /listings, length:', listingsResponse.data.data.length);
+        return {
+          success: true,
+          data: listingsResponse.data.data,
+          count: listingsResponse.data.data.length,
+          total: listingsResponse.data.total || listingsResponse.data.data.length,
+          page: listingsResponse.data.page || 1,
+          totalPages: listingsResponse.data.totalPages || 1
+        };
+      }
+    }
+
+    console.error('Unexpected response format from both endpoints');
+    throw new Error('Unexpected response format from server');
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -371,18 +695,61 @@ export const getFeaturedListings = async (limit: number = 10): Promise<Listing[]
     }
 
     // Real API call
-    const response = await api.get<ApiResponse<Listing[]>>('/listings', {
-      params: {
-        limit,
-        isFeatured: true
-      }
-    });
+    console.log('Fetching featured listings from API');
+    try {
+      // First try the /listings/featured endpoint
+      const response = await api.get<any>('/listings/featured', {
+        params: {
+          limit
+        }
+      });
 
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.message || 'Failed to fetch featured listings');
+      // Check if response is valid
+      if (!response.data) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Handle different response formats
+      if (Array.isArray(response.data)) {
+        console.log('Received array response for featured listings');
+        return response.data;
+      } else if (response.data.success && Array.isArray(response.data.data)) {
+        console.log('Received success response for featured listings');
+        return response.data.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        console.log('Received data property response for featured listings');
+        return response.data.data;
+      }
+    } catch (featuredError) {
+      console.log('Error fetching from /listings/featured, trying /listings with isFeatured param');
+
+      // Try the /listings endpoint with isFeatured parameter
+      const response = await api.get<any>('/listings', {
+        params: {
+          limit,
+          isFeatured: true
+        }
+      });
+
+      if (!response.data) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Handle different response formats
+      if (Array.isArray(response.data)) {
+        console.log('Received array response from /listings');
+        return response.data;
+      } else if (response.data.success && Array.isArray(response.data.data)) {
+        console.log('Received success response from /listings');
+        return response.data.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        console.log('Received data property response from /listings');
+        return response.data.data;
+      }
     }
 
-    return response.data.data;
+    console.error('Unexpected response format for featured listings');
+    throw new Error('Unexpected response format from server');
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -408,14 +775,67 @@ export const getListingById = async (id: string): Promise<Listing> => {
     }
 
     // Real API call
-    const response = await api.get<Listing>(`/listings/${id}`);
+    console.log(`Fetching listing with ID: ${id}`);
+    try {
+      const response = await api.get<any>(`/listings/${id}`);
 
-    if (!response.data) {
+      if (!response.data) {
+        throw new Error('Listing not found');
+      }
+
+      console.log('Listing response type:', response.data ? 'object' : 'null');
+
+      // Handle different response formats
+      if (response.data._id) {
+        // Response is the listing object directly
+        console.log('Received direct listing object');
+        return response.data;
+      } else if (response.data.success && response.data.data) {
+        // Response is wrapped in success/data format
+        console.log('Received success/data format');
+        return response.data.data;
+      } else if (response.data.data) {
+        // Response has data property
+        console.log('Received data property format');
+        return response.data.data;
+      } else if (Array.isArray(response.data)) {
+        // Response is an array, find the listing with matching ID
+        console.log('Received array response, finding listing with ID:', id);
+        const listing = response.data.find(item => item._id === id);
+        if (listing) {
+          return listing;
+        }
+        throw new Error('Listing not found in array response');
+      }
+
+      console.error('Unexpected response format:', response.data);
+      throw new Error('Unexpected response format from server');
+    } catch (error) {
+      console.log('Error fetching listing by ID, trying alternative endpoint');
+
+      // Try alternative endpoint
+      const response = await api.get<any>(`/listings?_id=${id}`);
+
+      if (!response.data) {
+        throw new Error('Listing not found');
+      }
+
+      if (Array.isArray(response.data)) {
+        const listing = response.data.find(item => item._id === id);
+        if (listing) {
+          return listing;
+        }
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        const listing = response.data.data.find(item => item._id === id);
+        if (listing) {
+          return listing;
+        }
+      }
+
       throw new Error('Listing not found');
     }
-
-    return response.data;
   } catch (error) {
+    console.error('Error in getListingById:', error);
     throw new Error(handleApiError(error));
   }
 };

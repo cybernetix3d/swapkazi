@@ -2,7 +2,7 @@
 const ENV = {
   dev: {
     apiUrl: 'http://192.168.1.224:5000/api', // Use your computer's IP address for physical devices
-    enableMockData: false, // Using real API
+    enableMockData: false, // Using real API data
   },
   staging: {
     apiUrl: 'https://staging-api.swapkazi.com/api',
