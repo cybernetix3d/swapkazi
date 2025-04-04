@@ -13,12 +13,20 @@ const generateToken = (id) => {
 // @access  Public
 const registerUser = async (req, res) => {
   try {
+    console.log('Register request received:', req.body);
     const { username, email, password, fullName } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !password || !fullName) {
+      console.log('Missing required fields');
+      return res.status(400).json({ message: 'All fields are required' });
+    }
 
     // Check if user already exists
     const userExists = await User.findOne({ $or: [{ email }, { username }] });
 
     if (userExists) {
+      console.log('User already exists:', userExists.email === email ? 'Email taken' : 'Username taken');
       return res.status(400).json({
         message: userExists.email === email
           ? 'Email already in use'
@@ -26,6 +34,7 @@ const registerUser = async (req, res) => {
       });
     }
 
+    console.log('Creating new user...');
     // Create user
     const user = await User.create({
       username,
@@ -36,7 +45,7 @@ const registerUser = async (req, res) => {
 
     // Return user data with token
     if (user) {
-      res.status(201).json({
+      const response = {
         _id: user._id,
         username: user.username,
         email: user.email,
@@ -44,13 +53,16 @@ const registerUser = async (req, res) => {
         avatar: user.avatar,
         talentBalance: user.talentBalance,
         token: generateToken(user._id),
-      });
+      };
+      console.log('User created successfully');
+      return res.status(201).json(response);
     } else {
-      res.status(400).json({ message: 'Invalid user data' });
+      console.log('Failed to create user');
+      return res.status(400).json({ message: 'Invalid user data' });
     }
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    return res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
@@ -59,28 +71,48 @@ const registerUser = async (req, res) => {
 // @access  Public
 const loginUser = async (req, res) => {
   try {
+    console.log('Login request received:', req.body);
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      console.log('Missing email or password');
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
 
     // Find user by email
     const user = await User.findOne({ email });
+    console.log('User found:', user ? 'Yes' : 'No');
 
     // Check if user exists and password matches
     if (user && (await user.comparePassword(password))) {
-      res.json({
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        avatar: user.avatar,
-        talentBalance: user.talentBalance,
-        token: generateToken(user._id),
-      });
+      const token = generateToken(user._id);
+      const response = {
+        token,
+        user: {
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          fullName: user.fullName,
+          avatar: user.avatar,
+          talentBalance: user.talentBalance,
+          skills: user.skills || [],
+          location: user.location,
+          ratings: user.ratings || [],
+          averageRating: user.averageRating || 0,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      };
+      console.log('Login successful, sending response');
+      return res.json(response);
     } else {
-      res.status(401).json({ message: 'Invalid email or password' });
+      console.log('Invalid credentials');
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+    return res.status(500).json({ message: 'Server error during login' });
   }
 };
 
@@ -90,7 +122,7 @@ const loginUser = async (req, res) => {
 const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
-    
+
     if (user) {
       res.json(user);
     } else {

@@ -1,6 +1,8 @@
 import { Listing, ListingFormData, ListingFilter, PaginatedResponse, ApiResponse } from '../types';
+import api, { handleApiError } from './api';
+import config from '../config';
 
-// Mock listings data
+// Mock listings data for development
 const mockListings: Listing[] = [
   {
     _id: '1',
@@ -243,172 +245,510 @@ const mockListings: Listing[] = [
 ];
 
 /**
- * Mock implementation of getListings
+ * Get listings with optional filters
  */
 export const getListings = async (filters?: ListingFilter): Promise<PaginatedResponse<Listing>> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  let filteredListings = [...mockListings];
-  
-  // Apply filters if provided
-  if (filters) {
-    if (filters.category) {
-      filteredListings = filteredListings.filter(
-        listing => listing.category === filters.category
-      );
-    }
-    
-    if (filters.listingType) {
-      filteredListings = filteredListings.filter(
-        listing => listing.listingType === filters.listingType
-      );
-    }
-    
-    if (filters.exchangeType) {
-      filteredListings = filteredListings.filter(
-        listing => listing.exchangeType === filters.exchangeType
-      );
-    }
-    
-    if (filters.priceMin !== undefined) {
-      filteredListings = filteredListings.filter(
-        listing => listing.talentPrice >= filters.priceMin!
-      );
-    }
-    
-    if (filters.priceMax !== undefined) {
-      filteredListings = filteredListings.filter(
-        listing => listing.talentPrice <= filters.priceMax!
-      );
-    }
-    
-    if (filters.searchTerm) {
-      const searchTermLower = filters.searchTerm.toLowerCase();
-      filteredListings = filteredListings.filter(
-        listing => 
-          listing.title.toLowerCase().includes(searchTermLower) ||
-          listing.description.toLowerCase().includes(searchTermLower)
-      );
-    }
-    
-    // Sort listings
-    if (filters.sortBy) {
-      switch (filters.sortBy) {
-        case 'newest':
-          filteredListings.sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      let filteredListings = [...mockListings];
+
+      // Apply filters if provided
+      if (filters) {
+        if (filters.category) {
+          filteredListings = filteredListings.filter(
+            listing => listing.category === filters.category
           );
-          break;
-        case 'oldest':
-          filteredListings.sort((a, b) => 
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        }
+
+        if (filters.listingType) {
+          filteredListings = filteredListings.filter(
+            listing => listing.listingType === filters.listingType
           );
-          break;
-        case 'priceAsc':
-          filteredListings.sort((a, b) => a.talentPrice - b.talentPrice);
-          break;
-        case 'priceDesc':
-          filteredListings.sort((a, b) => b.talentPrice - a.talentPrice);
-          break;
+        }
+
+        if (filters.exchangeType) {
+          filteredListings = filteredListings.filter(
+            listing => listing.exchangeType === filters.exchangeType
+          );
+        }
+
+        if (filters.priceMin !== undefined) {
+          filteredListings = filteredListings.filter(
+            listing => listing.talentPrice >= filters.priceMin!
+          );
+        }
+
+        if (filters.priceMax !== undefined) {
+          filteredListings = filteredListings.filter(
+            listing => listing.talentPrice <= filters.priceMax!
+          );
+        }
+
+        if (filters.searchTerm) {
+          const searchTermLower = filters.searchTerm.toLowerCase();
+          filteredListings = filteredListings.filter(
+            listing =>
+              listing.title.toLowerCase().includes(searchTermLower) ||
+              listing.description.toLowerCase().includes(searchTermLower)
+          );
+        }
+
+        // Sort listings
+        if (filters.sortBy) {
+          switch (filters.sortBy) {
+            case 'newest':
+              filteredListings.sort((a, b) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+              break;
+            case 'oldest':
+              filteredListings.sort((a, b) =>
+                new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+              );
+              break;
+            case 'priceAsc':
+              filteredListings.sort((a, b) => a.talentPrice - b.talentPrice);
+              break;
+            case 'priceDesc':
+              filteredListings.sort((a, b) => b.talentPrice - a.talentPrice);
+              break;
+          }
+        }
       }
+
+      // Paginate results
+      const page = filters?.page || 1;
+      const limit = filters?.limit || 10;
+      const startIndex = (page - 1) * limit;
+      const endIndex = page * limit;
+      const paginatedListings = filteredListings.slice(startIndex, endIndex);
+
+      return {
+        success: true,
+        data: paginatedListings,
+        count: paginatedListings.length,
+        total: filteredListings.length,
+        page,
+        totalPages: Math.ceil(filteredListings.length / limit)
+      };
     }
+
+    // Real API call
+    console.log('Fetching listings with filters:', filters);
+    const response = await api.get<PaginatedResponse<Listing>>('/listings', {
+      params: filters
+    });
+
+    if (!response.data) {
+      throw new Error('Invalid response from server');
+    }
+
+    console.log('Listings response:', response.data);
+    console.log('Number of listings received:', response.data.data?.length || 0);
+
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
   }
-  
-  // Paginate results
-  const page = filters?.page || 1;
-  const limit = filters?.limit || 10;
-  const startIndex = (page - 1) * limit;
-  const endIndex = page * limit;
-  const paginatedListings = filteredListings.slice(startIndex, endIndex);
-  
-  return {
-    success: true,
-    data: paginatedListings,
-    count: paginatedListings.length,
-    total: filteredListings.length,
-    page,
-    totalPages: Math.ceil(filteredListings.length / limit)
-  };
 };
 
 /**
- * Mock implementation of getFeaturedListings
+ * Get featured listings
  */
 export const getFeaturedListings = async (limit: number = 10): Promise<Listing[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 600));
-  
-  const featuredListings = mockListings.filter(listing => listing.isFeatured);
-  return featuredListings.slice(0, limit);
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      const featuredListings = mockListings.filter(listing => listing.isFeatured);
+      return featuredListings.slice(0, limit);
+    }
+
+    // Real API call
+    const response = await api.get<ApiResponse<Listing[]>>('/listings', {
+      params: {
+        limit,
+        isFeatured: true
+      }
+    });
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message || 'Failed to fetch featured listings');
+    }
+
+    return response.data.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
 };
 
 /**
- * Mock implementation of getListingById
+ * Get listing by ID
  */
 export const getListingById = async (id: string): Promise<Listing> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  const listing = mockListings.find(listing => listing._id === id);
-  
-  if (!listing) {
-    throw new Error('Listing not found');
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const listing = mockListings.find(listing => listing._id === id);
+
+      if (!listing) {
+        throw new Error('Listing not found');
+      }
+
+      return listing;
+    }
+
+    // Real API call
+    const response = await api.get<Listing>(`/listings/${id}`);
+
+    if (!response.data) {
+      throw new Error('Listing not found');
+    }
+
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
   }
-  
-  return listing;
 };
 
 /**
- * Mock implementation of createListing
+ * Create a new listing
  */
 export const createListing = async (listingData: ListingFormData): Promise<Listing> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  const newListing: Listing = {
-    _id: (mockListings.length + 1).toString(),
-    user: {
-      _id: '101', // Mock user ID
-      username: 'current_user',
-      email: 'user@example.com',
-      fullName: 'Current User',
-      skills: [],
-      talentBalance: 50,
-      location: {
-        type: 'Point',
-        coordinates: [18.4241, -33.9249],
-        address: 'Cape Town, South Africa'
-      },
-      ratings: [],
-      averageRating: 0,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    ...listingData,
-    isActive: true,
-    isFeatured: false,
-    views: 0,
-    likes: [],
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  
-  // In a real implementation, this would save to a database
-  // mockListings.push(newListing);
-  
-  return newListing;
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const newListing: Listing = {
+        _id: (mockListings.length + 1).toString(),
+        user: {
+          _id: '101', // Mock user ID
+          username: 'current_user',
+          email: 'user@example.com',
+          fullName: 'Current User',
+          skills: [],
+          talentBalance: 50,
+          location: {
+            type: 'Point',
+            coordinates: [18.4241, -33.9249],
+            address: 'Cape Town, South Africa'
+          },
+          ratings: [],
+          averageRating: 0,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        ...listingData,
+        isActive: true,
+        isFeatured: false,
+        views: 0,
+        likes: [],
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      return newListing;
+    }
+
+    // Real API call
+    console.log('Creating listing with data:', {
+      ...listingData,
+      images: listingData.images ? `${listingData.images.length} images` : 'no images'
+    });
+
+    // Make a copy of the data to avoid modifying the original
+    const dataToSend = { ...listingData };
+
+    // Remove large image data if present to avoid payload size issues
+    if (dataToSend.images && dataToSend.images.length > 0) {
+      // Keep only the URLs, not the base64 data
+      dataToSend.images = dataToSend.images.map(img => {
+        if (typeof img === 'string') {
+          return img; // Already a URL
+        } else if (img.url) {
+          return img.url; // Extract URL from image object
+        }
+        return 'https://via.placeholder.com/400'; // Fallback
+      });
+    }
+
+    const response = await api.post<Listing>('/listings', dataToSend);
+
+    if (!response.data) {
+      throw new Error('Failed to create listing');
+    }
+
+    console.log('Listing created successfully:', response.data);
+
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
 };
 
-// Other methods would be implemented similarly with mock data
-// These implementations are simplified for demo purposes
+/**
+ * Update an existing listing
+ */
+export const updateListing = async (id: string, listingData: Partial<ListingFormData>): Promise<Listing> => {
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-export const updateListing = async () => {} 
-export const deleteListing = async () => {}
-export const toggleLikeListing = async () => {}
-export const getNearbyListings = async () => {}
-export const searchListings = async () => {}
-export const uploadListingImage = async () => {}
-export const deleteListingImage = async () => {}
+      const listing = mockListings.find(listing => listing._id === id);
+
+      if (!listing) {
+        throw new Error('Listing not found');
+      }
+
+      // Update listing with new data
+      const updatedListing = {
+        ...listing,
+        ...listingData,
+        updatedAt: new Date().toISOString()
+      };
+
+      return updatedListing;
+    }
+
+    // Real API call
+    const response = await api.put<Listing>(`/listings/${id}`, listingData);
+
+    if (!response.data) {
+      throw new Error('Failed to update listing');
+    }
+
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Delete a listing
+ */
+export const deleteListing = async (id: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      return {
+        success: true,
+        message: 'Listing deleted successfully'
+      };
+    }
+
+    // Real API call
+    const response = await api.delete<{ message: string }>(`/listings/${id}`);
+
+    if (!response.data) {
+      throw new Error('Failed to delete listing');
+    }
+
+    return {
+      success: true,
+      message: response.data.message || 'Listing deleted successfully'
+    };
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Toggle like on a listing
+ */
+export const toggleLikeListing = async (id: string): Promise<{ isLiked: boolean; likes: number }> => {
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      return {
+        isLiked: true,
+        likes: 1
+      };
+    }
+
+    // Real API call
+    const response = await api.post<{ isLiked: boolean; likes: number }>(`/listings/${id}/like`);
+
+    if (!response.data) {
+      throw new Error('Failed to toggle like');
+    }
+
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get nearby listings
+ */
+export const getNearbyListings = async (longitude: number, latitude: number, distance: number = 10000): Promise<Listing[]> => {
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 700));
+
+      // Return all listings for mock data
+      return mockListings;
+    }
+
+    // Real API call
+    const response = await api.get<ApiResponse<Listing[]>>('/listings/nearby', {
+      params: {
+        longitude,
+        latitude,
+        distance
+      }
+    });
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message || 'Failed to fetch nearby listings');
+    }
+
+    return response.data.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Search listings
+ */
+export const searchListings = async (query: string, category?: string, exchangeType?: string): Promise<Listing[]> => {
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      let filteredListings = [...mockListings];
+
+      // Filter by search term
+      if (query) {
+        const queryLower = query.toLowerCase();
+        filteredListings = filteredListings.filter(
+          listing =>
+            listing.title.toLowerCase().includes(queryLower) ||
+            listing.description.toLowerCase().includes(queryLower)
+        );
+      }
+
+      // Filter by category
+      if (category) {
+        filteredListings = filteredListings.filter(
+          listing => listing.category === category
+        );
+      }
+
+      // Filter by exchange type
+      if (exchangeType) {
+        filteredListings = filteredListings.filter(
+          listing => listing.exchangeType === exchangeType
+        );
+      }
+
+      return filteredListings;
+    }
+
+    // Real API call
+    const response = await api.get<ApiResponse<Listing[]>>('/listings/search', {
+      params: {
+        query,
+        category,
+        exchangeType
+      }
+    });
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message || 'Failed to search listings');
+    }
+
+    return response.data.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Upload listing image
+ */
+export const uploadListingImage = async (imageData: string): Promise<{ url: string }> => {
+  try {
+    console.log('Uploading image...');
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      return {
+        url: 'https://via.placeholder.com/400'
+      };
+    }
+
+    // Real API call - send base64 image data
+    const response = await api.post<ApiResponse<{ url: string }>>('/listings/upload', {
+      image: imageData
+    });
+
+    console.log('Image upload response:', response.data);
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message || 'Failed to upload image');
+    }
+
+    return response.data.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Delete listing image
+ */
+export const deleteListingImage = async (imageUrl: string): Promise<{ success: boolean }> => {
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      return {
+        success: true
+      };
+    }
+
+    // Real API call
+    const response = await api.delete<ApiResponse<{ success: boolean }>>('/listings/image', {
+      data: { url: imageUrl }
+    });
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Failed to delete image');
+    }
+
+    return { success: true };
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};

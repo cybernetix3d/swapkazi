@@ -1,12 +1,12 @@
 import api, { handleApiError } from './api';
-import { 
-  Transaction, 
-  TransactionStatus, 
-  TransactionFormData, 
+import {
+  Transaction,
+  TransactionStatus,
+  TransactionFormData,
   TransactionFilter,
   TransactionRating,
   ApiResponse,
-  PaginatedResponse 
+  PaginatedResponse
 } from '../types';
 
 /**
@@ -33,14 +33,19 @@ export const getTransactions = async (filters?: TransactionFilter): Promise<Pagi
  */
 export const getTransactionById = async (id: string): Promise<Transaction> => {
   try {
+    console.log(`Fetching transaction with ID: ${id}`);
     const response = await api.get<ApiResponse<Transaction>>(`/transactions/${id}`);
+    console.log('Transaction API response:', response.data);
 
     if (!response.data.success || !response.data.data) {
+      console.error('API error:', response.data.message);
       throw new Error(response.data.message || 'Failed to fetch transaction');
     }
 
+    console.log('Transaction data:', response.data.data);
     return response.data.data;
   } catch (error) {
+    console.error('Error in getTransactionById:', error);
     throw new Error(handleApiError(error));
   }
 };
@@ -66,18 +71,24 @@ export const createTransaction = async (transactionData: TransactionFormData): P
  * Update transaction status
  */
 export const updateTransactionStatus = async (
-  id: string, 
+  id: string,
   status: TransactionStatus
 ): Promise<Transaction> => {
   try {
+    console.log(`Updating transaction ${id} status to ${status}`);
+
     const response = await api.put<ApiResponse<Transaction>>(`/transactions/${id}/status`, { status });
+    console.log('API response:', response.data);
 
     if (!response.data.success || !response.data.data) {
+      console.error('API error:', response.data.message);
       throw new Error(response.data.message || 'Failed to update transaction status');
     }
 
+    console.log('Transaction status updated successfully');
     return response.data.data;
   } catch (error) {
+    console.error('Error in updateTransactionStatus:', error);
     throw new Error(handleApiError(error));
   }
 };
@@ -86,7 +97,7 @@ export const updateTransactionStatus = async (
  * Add message to transaction
  */
 export const addTransactionMessage = async (
-  id: string, 
+  id: string,
   content: string
 ): Promise<Transaction> => {
   try {
@@ -114,9 +125,9 @@ export const updateTransactionMeetup = async (
   }
 ): Promise<Transaction> => {
   try {
-    const response = await api.put<ApiResponse<Transaction>>(`/transactions/${id}/meetup`, { 
-      meetupTime, 
-      meetupLocation 
+    const response = await api.put<ApiResponse<Transaction>>(`/transactions/${id}/meetup`, {
+      meetupTime,
+      meetupLocation
     });
 
     if (!response.data.success || !response.data.data) {
@@ -159,7 +170,7 @@ export const reportTransaction = async (
 ): Promise<{ success: boolean; caseNumber?: string }> => {
   try {
     const response = await api.post<ApiResponse<{ success: boolean; caseNumber?: string }>>(
-      `/transactions/${id}/report`, 
+      `/transactions/${id}/report`,
       { reason, details }
     );
 

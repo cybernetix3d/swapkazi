@@ -19,14 +19,14 @@ export interface User {
     createdAt: string;
     updatedAt: string;
   }
-  
+
   export interface Rating {
     user: string | User;
     rating: number;
     comment?: string;
     createdAt: string;
   }
-  
+
   export interface AuthContextType {
     user: User | null;
     token: string | null;
@@ -37,13 +37,14 @@ export interface User {
     register: (userData: RegisterData) => Promise<boolean>;
     logout: () => Promise<boolean>;
     updateProfile: (data: Partial<User>) => Promise<boolean>;
+    refreshProfile: () => Promise<boolean>;
   }
-  
+
   export interface LoginCredentials {
     email: string;
     password: string;
   }
-  
+
   export interface RegisterData {
     username: string;
     email: string;
@@ -52,7 +53,7 @@ export interface User {
     phoneNumber?: string;
     skills?: string[];
   }
-  
+
   export interface AuthResponse {
     token: string;
     user: User;

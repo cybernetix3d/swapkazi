@@ -15,20 +15,31 @@ interface ListingCardProps {
 const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onPress }) => {
   const { colors } = useTheme();
   const router = useRouter();
-  
+
   // Handle if the listing.user is populated as an object or just an ID
-  const userObj = typeof listing.user === 'string' 
-    ? null 
+  const userObj = typeof listing.user === 'string'
+    ? null
     : listing.user as User;
-  
+
   const userName = userObj?.fullName || 'Unknown User';
   const userAvatar = userObj?.avatar || 'https://via.placeholder.com/50';
-  
+
   // Default image if no images are provided
-  const mainImage = listing.images && listing.images.length > 0
-    ? listing.images[0].url
-    : 'https://via.placeholder.com/400';
-  
+  let mainImage = 'https://via.placeholder.com/400';
+
+  if (listing.images && listing.images.length > 0) {
+    // Handle different image formats
+    const firstImage = listing.images[0];
+    if (typeof firstImage === 'string') {
+      mainImage = firstImage;
+    } else if (typeof firstImage === 'object' && firstImage.url) {
+      mainImage = firstImage.url;
+    }
+  }
+
+  console.log('Listing images:', listing.images);
+  console.log('Main image URL:', mainImage);
+
   const handlePress = () => {
     if (onPress) {
       onPress();
@@ -36,7 +47,7 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
       router.push(`/(app)/marketplace/${listing._id}`);
     }
   };
-  
+
   if (compact) {
     return (
       <TouchableOpacity
@@ -45,7 +56,7 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
       >
         <Image source={{ uri: mainImage }} style={styles.compactImage} />
         <View style={styles.compactContent}>
-          <Text 
+          <Text
             style={[styles.compactTitle, { color: colors.text.primary }]}
             numberOfLines={2}
           >
@@ -58,7 +69,7 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
             <Text style={[styles.talentPrice, { color: colors.primary }]}>
               ✦ {listing.talentPrice}
             </Text>
-            
+
             {listing.exchangeType !== 'Talent' && (
               <View style={[styles.exchangeBadge, { backgroundColor: colors.secondary }]}>
                 <Text style={styles.exchangeText}>
@@ -71,7 +82,7 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
       </TouchableOpacity>
     );
   }
-  
+
   return (
     <TouchableOpacity
       style={[styles.container, { backgroundColor: colors.background.card }]}
@@ -79,15 +90,15 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
       activeOpacity={0.9}
     >
       <Image source={{ uri: mainImage }} style={styles.image} />
-      
+
       {/* Listing Type Badge */}
-      <View 
+      <View
         style={[
-          styles.typeBadge, 
-          { 
-            backgroundColor: listing.listingType === 'Offer' 
-              ? colors.accent 
-              : colors.secondary 
+          styles.typeBadge,
+          {
+            backgroundColor: listing.listingType === 'Offer'
+              ? colors.accent
+              : colors.secondary
           }
         ]}
       >
@@ -95,7 +106,7 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
           {listing.listingType === 'Offer' ? 'Offering' : 'Wanted'}
         </Text>
       </View>
-      
+
       <View style={styles.content}>
         <Text style={[styles.title, { color: colors.text.primary }]}>
           {listing.title}
@@ -103,19 +114,19 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
         <Text style={[styles.category, { color: colors.text.secondary }]}>
           {listing.category}
         </Text>
-        
+
         {listing.condition !== 'Not Applicable' && (
           <Text style={[styles.condition, { color: colors.text.secondary }]}>
             Condition: {listing.condition}
           </Text>
         )}
-        
+
         <View style={styles.footer}>
           <View style={styles.priceContainer}>
             <Text style={[styles.talentPrice, { color: colors.primary }]}>
               ✦ {listing.talentPrice}
             </Text>
-            
+
             {listing.exchangeType !== 'Talent' && (
               <View style={[styles.exchangeBadge, { backgroundColor: colors.secondary }]}>
                 <Text style={styles.exchangeText}>
@@ -124,7 +135,7 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
               </View>
             )}
           </View>
-          
+
           <View style={styles.userInfo}>
             <Image source={{ uri: userAvatar }} style={styles.userAvatar} />
             <Text style={[styles.userName, { color: colors.text.secondary }]}>

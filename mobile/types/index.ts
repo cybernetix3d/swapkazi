@@ -39,6 +39,7 @@ export interface AuthContextType {
   register: (userData: RegisterData) => Promise<boolean>;
   logout: () => Promise<boolean>;
   updateProfile: (data: Partial<User>) => Promise<boolean>;
+  refreshProfile: () => Promise<boolean>;
 }
 
 export interface LoginCredentials {
@@ -61,7 +62,7 @@ export interface AuthResponse {
 }
 
 // Listing types
-export type ListingCategory = 
+export type ListingCategory =
   | 'Goods'
   | 'Services'
   | 'Food'
@@ -75,7 +76,7 @@ export type ListingCategory =
   | 'Transportation'
   | 'Other';
 
-export type ItemCondition = 
+export type ItemCondition =
   | 'New'
   | 'Like New'
   | 'Good'
@@ -148,10 +149,11 @@ export interface ListingFilter {
   sortBy?: 'newest' | 'oldest' | 'priceAsc' | 'priceDesc';
   page?: number;
   limit?: number;
+  isFeatured?: boolean;
 }
 
 // Transaction types
-export type TransactionStatus = 
+export type TransactionStatus =
   | 'Proposed'
   | 'Accepted'
   | 'Rejected'

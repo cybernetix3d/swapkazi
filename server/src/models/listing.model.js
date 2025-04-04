@@ -112,6 +112,11 @@ const listingSchema = new mongoose.Schema(
         return date;
       },
     },
+    completedTransaction: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Transaction',
+      default: null,
+    },
   },
   {
     timestamps: true,

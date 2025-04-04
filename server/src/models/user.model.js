@@ -59,6 +59,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 10, // Start with 10 Talents as welcome bonus
     },
+    reservedTalents: {
+      type: Number,
+      default: 0, // Talents that are reserved for pending transactions
+    },
     ratings: [
       {
         user: {
@@ -110,7 +114,15 @@ userSchema.pre('save', async function (next) {
 
 // Method to validate password
 userSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+  console.log('Comparing passwords...');
+  try {
+    const isMatch = await bcrypt.compare(candidatePassword, this.password);
+    console.log('Password match:', isMatch);
+    return isMatch;
+  } catch (error) {
+    console.error('Error comparing passwords:', error);
+    return false;
+  }
 };
 
 // Method to calculate and update average rating

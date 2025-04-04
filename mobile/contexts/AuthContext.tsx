@@ -1,62 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// Since we haven't implemented the actual service yet, let's create a mock service
-const AuthService = {
-  login: async (email: string, password: string) => {
-    // Mock implementation - in a real app this would call an API
-    return new Promise<{token: string, user: any}>((resolve) => {
-      setTimeout(() => {
-        resolve({
-          token: 'mock-token-12345',
-          user: {
-            _id: '1',
-            email,
-            fullName: 'Test User',
-            username: 'testuser',
-            talentBalance: 50,
-            skills: ['Coding', 'Design'],
-            location: {
-              type: 'Point',
-              coordinates: [18.4241, -33.9249], // Cape Town coordinates
-              address: 'Cape Town, South Africa'
-            },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        });
-      }, 1000);
-    });
-  },
-  register: async (userData: any) => {
-    // Mock implementation
-    return new Promise<{token: string, user: any}>((resolve) => {
-      setTimeout(() => {
-        resolve({
-          token: 'mock-token-12345',
-          user: {
-            _id: '1',
-            ...userData,
-            talentBalance: 10,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        });
-      }, 1000);
-    });
-  },
-  updateProfile: async (data: any, token: string) => {
-    // Mock implementation
-    return new Promise<any>((resolve) => {
-      setTimeout(() => {
-        resolve({
-          ...data,
-          _id: '1',
-          updatedAt: new Date().toISOString()
-        });
-      }, 1000);
-    });
-  }
-};
+import * as AuthService from '../services/authService';
+import { router } from 'expo-router';
 import { AuthContextType, User, RegisterData } from '../types';
 
 const defaultAuthContext: AuthContextType = {
@@ -69,6 +14,7 @@ const defaultAuthContext: AuthContextType = {
   register: async () => false,
   logout: async () => false,
   updateProfile: async () => false,
+  refreshProfile: async () => false,
 };
 
 const AuthContext = createContext<AuthContextType>(defaultAuthContext);
@@ -91,11 +37,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const storedUser = await AsyncStorage.getItem('user');
 
         if (storedToken && storedUser) {
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+          // Verify token is still valid
+          try {
+            // Attempt to validate token by making a request
+            const isValid = await AuthService.validateToken(storedToken);
+
+            if (isValid) {
+              console.log('Token is valid, setting auth state');
+              setToken(storedToken);
+              // Make sure storedUser is valid JSON before parsing
+              try {
+                setUser(JSON.parse(storedUser));
+              } catch (parseError) {
+                console.error('Failed to parse stored user data', parseError);
+                // Clear invalid data
+                await AsyncStorage.removeItem('user');
+                await AsyncStorage.removeItem('token');
+              }
+            } else {
+              console.log('Token is invalid, clearing auth state');
+              await AsyncStorage.removeItem('user');
+              await AsyncStorage.removeItem('token');
+            }
+          } catch (tokenError) {
+            console.error('Error validating token:', tokenError);
+            // Clear potentially invalid token
+            await AsyncStorage.removeItem('user');
+            await AsyncStorage.removeItem('token');
+          }
         }
       } catch (e) {
         console.error('Failed to load authentication data', e);
+        // Clear potentially corrupted data
+        await AsyncStorage.removeItem('user');
+        await AsyncStorage.removeItem('token');
       } finally {
         setIsLoading(false);
       }
@@ -110,11 +85,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setError(null);
       setIsLoading(true);
       const { token, user } = await AuthService.login(email, password);
-      
+
       // Store auth data
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('user', JSON.stringify(user));
-      
+
       setToken(token);
       setUser(user);
       return true;
@@ -133,11 +108,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setError(null);
       setIsLoading(true);
       const { token, user } = await AuthService.register(userData);
-      
+
       // Store auth data
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('user', JSON.stringify(user));
-      
+
       setToken(token);
       setUser(user);
       return true;
@@ -153,14 +128,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Logout function
   const logout = async (): Promise<boolean> => {
     try {
+      setIsLoading(true);
+
+      // Clear stored auth data
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('user');
+
       setToken(null);
       setUser(null);
+
+      // Redirect to login screen
+      router.replace('/(auth)/login');
+
       return true;
     } catch (e) {
-      console.error('Logout error', e);
+      const error = e as Error;
+      setError(error.message || 'Failed to logout');
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -170,20 +156,61 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!token) {
         throw new Error("Not authenticated");
       }
-      
+
       setIsLoading(true);
       const updatedUser = await AuthService.updateProfile(data, token);
-      
+
       // Update stored user data
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
       return true;
     } catch (e) {
       const error = e as Error;
+
+      // Handle authentication errors
+      if (error.message.includes('authentication') || error.message.includes('token')) {
+        // Clear auth data and redirect to login
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
+        router.replace('/(auth)/login');
+      }
+
       setError(error.message || 'Failed to update profile');
       return false;
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Refresh user profile
+  const refreshProfile = async (): Promise<boolean> => {
+    try {
+      if (!token) {
+        return false;
+      }
+
+      const updatedUser = await AuthService.getProfile(token);
+
+      // Update stored user data
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      return true;
+    } catch (e) {
+      const error = e as Error;
+
+      // Handle authentication errors
+      if (error.message.includes('authentication') || error.message.includes('token')) {
+        // Clear auth data and redirect to login
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
+        router.replace('/(auth)/login');
+      }
+
+      return false;
     }
   };
 
@@ -199,6 +226,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     updateProfile,
+    refreshProfile,
     isAuthenticated,
   };
 

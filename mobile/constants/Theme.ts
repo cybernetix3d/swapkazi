@@ -4,7 +4,10 @@ export const FONT = {
   regular: 'System',
   medium: 'System',
   bold: 'System',
-  
+  icon: 'FontAwesome5_Solid',
+  iconBrands: 'FontAwesome5_Brands',
+  iconRegular: 'FontAwesome5_Regular',
+
   // Font sizes
   sizes: {
     xs: 10,

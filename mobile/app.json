@@ -38,6 +38,29 @@
         }
       ],
       "expo-router"
+    ],
+    "fonts": [
+      {
+        "asset": "./assets/fonts/FontAwesome.ttf"
+      },
+      {
+        "asset": "./assets/fonts/FontAwesome5_Brands.ttf"
+      },
+      {
+        "asset": "./assets/fonts/FontAwesome5_Regular.ttf"
+      },
+      {
+        "asset": "./assets/fonts/FontAwesome5_Solid.ttf"
+      },
+      {
+        "asset": "./assets/fonts/FontAwesome6_Brands.ttf"
+      },
+      {
+        "asset": "./assets/fonts/FontAwesome6_Regular.ttf"
+      },
+      {
+        "asset": "./assets/fonts/FontAwesome6_Solid.ttf"
+      }
     ]
   }
 }

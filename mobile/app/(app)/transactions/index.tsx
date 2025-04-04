@@ -15,7 +15,9 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
-import { Transaction, TransactionStatus, User } from '../../../types';
+import { Transaction, TransactionStatus, User, TransactionFilter } from '../../../types';
+import * as TransactionService from '../../../services/transaction';
+import config from '../../../config';
 
 // Mock data for development
 const mockTransactions: Transaction[] = [
@@ -197,44 +199,83 @@ const mockTransactions: Transaction[] = [
 
 export default function TransactionsScreen() {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isAuthenticated, logout, login } = useAuth();
   const router = useRouter();
-  
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [statusFilter, setStatusFilter] = useState<TransactionStatus | 'All'>('All');
-  
+
   useEffect(() => {
     fetchTransactions();
   }, [statusFilter]);
-  
+
   const fetchTransactions = async () => {
     setLoading(true);
-    
-    // In a real app, this would call an API
-    // For now, we'll use mock data
-    setTimeout(() => {
-      let filteredTransactions = [...mockTransactions];
-      
-      // Apply status filter if not "All"
-      if (statusFilter !== 'All') {
-        filteredTransactions = filteredTransactions.filter(
-          transaction => transaction.status === statusFilter
-        );
-      }
-      
-      setTransactions(filteredTransactions);
+
+    // If not authenticated, don't try to fetch transactions
+    if (!isAuthenticated) {
+      console.log('User not authenticated, skipping transaction fetch');
+      setTransactions([]);
       setLoading(false);
       setRefreshing(false);
-    }, 1000);
+      return;
+    }
+
+    try {
+      // Use mock data if enabled in config
+      if (config.enableMockData) {
+        // For now, we'll use mock data
+        setTimeout(() => {
+          let filteredTransactions = [...mockTransactions];
+
+          // Apply status filter if not "All"
+          if (statusFilter !== 'All') {
+            filteredTransactions = filteredTransactions.filter(
+              transaction => transaction.status === statusFilter
+            );
+          }
+
+          setTransactions(filteredTransactions);
+          setLoading(false);
+          setRefreshing(false);
+        }, 1000);
+        return;
+      }
+
+      // Prepare filter
+      const filter: TransactionFilter = {};
+
+      if (statusFilter !== 'All') {
+        filter.status = statusFilter as TransactionStatus;
+      }
+
+      console.log('Fetching transactions with filter:', filter);
+
+      // Get transactions from API
+      const response = await TransactionService.getTransactions(filter);
+      console.log('Transaction response:', response);
+
+      if (response.success && response.data) {
+        setTransactions(response.data);
+      } else {
+        setTransactions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
-  
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchTransactions();
   };
-  
+
   const getStatusColor = (status: TransactionStatus) => {
     switch (status) {
       case 'Proposed':
@@ -254,18 +295,18 @@ export default function TransactionsScreen() {
         return colors.text.secondary;
     }
   };
-  
+
   const isCurrentUser = (userId: string) => {
     return userId === user?._id;
   };
-  
+
   const getTransactionTitle = (transaction: Transaction) => {
     const userIsInitiator = isCurrentUser((transaction.initiator as any)._id);
     const otherParty = userIsInitiator ? transaction.recipient : transaction.initiator;
-    const otherPartyName = typeof otherParty === 'string' 
-      ? 'User' 
+    const otherPartyName = typeof otherParty === 'string'
+      ? 'User'
       : (otherParty as any).fullName;
-    
+
     if (transaction.listing) {
       return userIsInitiator
         ? `${(transaction.listing as any).title} for ${otherPartyName}`
@@ -276,15 +317,15 @@ export default function TransactionsScreen() {
         : `Transaction with ${otherPartyName}`;
     }
   };
-  
+
   const renderStatusFilter = () => {
     const statuses: (TransactionStatus | 'All')[] = [
       'All', 'Proposed', 'Accepted', 'Completed', 'Rejected', 'Cancelled', 'Disputed', 'Resolved'
     ];
-    
+
     return (
-      <ScrollView 
-        horizontal 
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.filterContainer}
       >
@@ -293,7 +334,7 @@ export default function TransactionsScreen() {
             key={status}
             style={[
               styles.filterButton,
-              statusFilter === status && { 
+              statusFilter === status && {
                 backgroundColor: status === 'All' ? colors.primary : getStatusColor(status as TransactionStatus)
               }
             ]}
@@ -312,7 +353,30 @@ export default function TransactionsScreen() {
       </ScrollView>
     );
   };
-  
+
+  // If not authenticated, show login prompt
+  if (!isAuthenticated) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
+        <View style={styles.emptyContainer}>
+          <FontAwesome5 name="lock" size={48} color={colors.text.secondary} />
+          <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
+            Authentication Required
+          </Text>
+          <Text style={[styles.emptySubText, { color: colors.text.muted }]}>
+            Please log in to view your transactions
+          </Text>
+          <TouchableOpacity
+            style={[styles.loginButton, { backgroundColor: colors.primary }]}
+            onPress={() => router.push('/(auth)/login')}
+          >
+            <Text style={styles.loginButtonText}>Log In</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   if (loading && !refreshing) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -320,12 +384,12 @@ export default function TransactionsScreen() {
       </View>
     );
   }
-  
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
       {/* Status Filter */}
       {renderStatusFilter()}
-      
+
       <FlatList
         data={transactions}
         keyExtractor={(item) => item._id}
@@ -338,16 +402,16 @@ export default function TransactionsScreen() {
               <Text style={[styles.transactionTitle, { color: colors.text.primary }]}>
                 {getTransactionTitle(item)}
               </Text>
-              <View 
+              <View
                 style={[
-                  styles.statusBadge, 
+                  styles.statusBadge,
                   { backgroundColor: getStatusColor(item.status) }
                 ]}
               >
                 <Text style={styles.statusText}>{item.status}</Text>
               </View>
             </View>
-            
+
             <View style={styles.transactionDetails}>
               <View style={styles.detailItem}>
                 <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>
@@ -357,7 +421,7 @@ export default function TransactionsScreen() {
                   {item.type}
                 </Text>
               </View>
-              
+
               {item.type !== 'Direct Swap' && (
                 <View style={styles.detailItem}>
                   <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>
@@ -368,7 +432,7 @@ export default function TransactionsScreen() {
                   </Text>
                 </View>
               )}
-              
+
               <View style={styles.detailItem}>
                 <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>
                   Date
@@ -394,7 +458,7 @@ export default function TransactionsScreen() {
               No transactions found
             </Text>
             <Text style={[styles.emptySubText, { color: colors.text.muted }]}>
-              {statusFilter !== 'All' 
+              {statusFilter !== 'All'
                 ? `Try a different filter or create new transactions`
                 : `Start transactions by offering or requesting items in the marketplace`
               }
@@ -480,5 +544,17 @@ const styles = StyleSheet.create({
   emptySubText: {
     fontSize: FONT.sizes.medium,
     textAlign: 'center',
+    marginBottom: SPACING.large,
+  },
+  loginButton: {
+    paddingHorizontal: SPACING.large,
+    paddingVertical: SPACING.medium,
+    borderRadius: SIZES.borderRadius.medium,
+    marginTop: SPACING.medium,
+  },
+  loginButtonText: {
+    fontSize: FONT.sizes.medium,
+    fontWeight: 'bold',
+    color: '#fff',
   },
 });

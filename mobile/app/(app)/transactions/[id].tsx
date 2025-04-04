@@ -16,6 +16,8 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { Transaction, TransactionStatus, User } from '../../../types';
+import * as TransactionService from '../../../services/transaction';
+import config from '../../../config';
 
 // Mock data (this would be fetched from API in a real app)
 const mockTransaction: Transaction = {
@@ -112,29 +114,60 @@ const mockTransaction: Transaction = {
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isAuthenticated, refreshProfile } = useAuth();
   const router = useRouter();
-  
+
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [newMessage, setNewMessage] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
-  
+
   useEffect(() => {
     fetchTransaction();
   }, [id]);
-  
+
   const fetchTransaction = async () => {
-    setLoading(true);
-    
-    // In a real app, this would call an API
-    // For now, we'll use mock data
-    setTimeout(() => {
-      setTransaction(mockTransaction);
+    console.log('Fetching transaction with ID:', id);
+    if (!id) {
+      console.log('No transaction ID provided');
+      return;
+    }
+
+    // If not authenticated, don't try to fetch transaction
+    if (!isAuthenticated) {
+      console.log('User not authenticated, skipping transaction fetch');
       setLoading(false);
-    }, 1000);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Use mock data if enabled in config
+      if (config.enableMockData) {
+        console.log('Using mock data for transaction');
+        // For now, we'll use mock data
+        setTimeout(() => {
+          setTransaction(mockTransaction);
+          console.log('Set mock transaction data:', mockTransaction);
+          setLoading(false);
+        }, 1000);
+        return;
+      }
+
+      // Get transaction from API
+      console.log('Fetching transaction from API');
+      const data = await TransactionService.getTransactionById(id as string);
+      console.log('Transaction data received:', data);
+      setTransaction(data);
+    } catch (error) {
+      console.error('Error fetching transaction:', error);
+      Alert.alert('Error', 'Failed to load transaction details');
+    } finally {
+      setLoading(false);
+    }
   };
-  
+
   const getStatusColor = (status: TransactionStatus) => {
     switch (status) {
       case 'Proposed':
@@ -154,53 +187,113 @@ export default function TransactionDetailScreen() {
         return colors.text.secondary;
     }
   };
-  
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString();
   };
-  
+
   const isCurrentUser = (userId: string) => {
-    return userId === user?._id;
+    const result = userId === user?._id;
+    console.log('isCurrentUser check:', { userId, currentUserId: user?._id, result });
+    return result;
   };
-  
+
   const canAccept = () => {
-    if (!transaction) return false;
-    
-    return (
+    console.log('Checking if user can accept transaction');
+    if (!transaction) {
+      console.log('No transaction data available');
+      return false;
+    }
+
+    const initiatorId = typeof transaction.initiator === 'string'
+      ? transaction.initiator
+      : (transaction.initiator as User)._id;
+
+    const result = (
       transaction.status === 'Proposed' &&
-      !isCurrentUser((transaction.initiator as User)._id)
+      !isCurrentUser(initiatorId)
     );
+
+    console.log('Can accept:', result, 'Status:', transaction.status, 'Is initiator:', isCurrentUser(initiatorId));
+    return result;
   };
-  
+
   const canReject = () => {
-    if (!transaction) return false;
-    
-    return (
+    console.log('Checking if user can reject transaction');
+    if (!transaction) {
+      console.log('No transaction data available');
+      return false;
+    }
+
+    const initiatorId = typeof transaction.initiator === 'string'
+      ? transaction.initiator
+      : (transaction.initiator as User)._id;
+
+    const result = (
       transaction.status === 'Proposed' &&
-      !isCurrentUser((transaction.initiator as User)._id)
+      !isCurrentUser(initiatorId)
     );
+
+    console.log('Can reject:', result, 'Status:', transaction.status, 'Is initiator:', isCurrentUser(initiatorId));
+    return result;
   };
-  
+
   const canComplete = () => {
-    if (!transaction) return false;
-    
-    return (
+    console.log('Checking if user can complete transaction');
+    if (!transaction) {
+      console.log('No transaction data available');
+      return false;
+    }
+
+    const initiatorId = typeof transaction.initiator === 'string'
+      ? transaction.initiator
+      : (transaction.initiator as User)._id;
+
+    const recipientId = typeof transaction.recipient === 'string'
+      ? transaction.recipient
+      : (transaction.recipient as User)._id;
+
+    const result = (
       transaction.status === 'Accepted' &&
-      (isCurrentUser((transaction.initiator as User)._id) || isCurrentUser((transaction.recipient as User)._id))
+      (isCurrentUser(initiatorId) || isCurrentUser(recipientId))
     );
+
+    console.log('Can complete:', result, 'Status:', transaction.status,
+      'Is initiator:', isCurrentUser(initiatorId),
+      'Is recipient:', isCurrentUser(recipientId));
+    return result;
   };
-  
+
   const canCancel = () => {
-    if (!transaction) return false;
-    
-    return (
+    console.log('Checking if user can cancel transaction');
+    if (!transaction) {
+      console.log('No transaction data available');
+      return false;
+    }
+
+    const initiatorId = typeof transaction.initiator === 'string'
+      ? transaction.initiator
+      : (transaction.initiator as User)._id;
+
+    const recipientId = typeof transaction.recipient === 'string'
+      ? transaction.recipient
+      : (transaction.recipient as User)._id;
+
+    const result = (
       (transaction.status === 'Proposed' || transaction.status === 'Accepted') &&
-      (isCurrentUser((transaction.initiator as User)._id) || isCurrentUser((transaction.recipient as User)._id))
+      (isCurrentUser(initiatorId) || isCurrentUser(recipientId))
     );
+
+    console.log('Can cancel:', result, 'Status:', transaction.status,
+      'Is initiator:', isCurrentUser(initiatorId),
+      'Is recipient:', isCurrentUser(recipientId));
+    return result;
   };
-  
+
   const handleAccept = () => {
+    if (!id) return;
+
     Alert.alert(
       'Accept Transaction',
       'Are you sure you want to accept this transaction?',
@@ -211,24 +304,55 @@ export default function TransactionDetailScreen() {
         },
         {
           text: 'Accept',
-          onPress: () => {
-            // In a real app, this would call an API
-            if (transaction) {
-              const updatedTransaction = { ...transaction, status: 'Accepted' as TransactionStatus };
-              updatedTransaction.statusHistory.push({
-                status: 'Accepted',
-                timestamp: new Date().toISOString(),
-                updatedBy: user?._id || ''
-              });
-              setTransaction(updatedTransaction);
+          onPress: async () => {
+            console.log('Accept button pressed');
+            try {
+              setLoading(true);
+
+              // Use mock data if enabled in config
+              if (config.enableMockData) {
+                // In a real app, this would call an API
+                if (transaction) {
+                  const updatedTransaction = { ...transaction, status: 'Accepted' as TransactionStatus };
+                  updatedTransaction.statusHistory.push({
+                    status: 'Accepted',
+                    timestamp: new Date().toISOString(),
+                    updatedBy: user?._id || ''
+                  });
+                  setTransaction(updatedTransaction);
+                }
+                setLoading(false);
+                return;
+              }
+
+              // Update transaction status via API
+              console.log('Accepting transaction:', id);
+              try {
+                const updatedTransaction = await TransactionService.updateTransactionStatus(
+                  id as string,
+                  'Accepted'
+                );
+                console.log('Transaction accepted successfully:', updatedTransaction);
+                setTransaction(updatedTransaction);
+              } catch (apiError) {
+                console.error('API error accepting transaction:', apiError);
+                Alert.alert('API Error', 'Failed to accept transaction: ' + apiError.message);
+              }
+            } catch (error) {
+              console.error('Error accepting transaction:', error);
+              Alert.alert('Error', 'Failed to accept transaction');
+            } finally {
+              setLoading(false);
             }
           }
         }
       ]
     );
   };
-  
+
   const handleReject = () => {
+    if (!id) return;
+
     Alert.alert(
       'Reject Transaction',
       'Are you sure you want to reject this transaction?',
@@ -239,24 +363,55 @@ export default function TransactionDetailScreen() {
         },
         {
           text: 'Reject',
-          onPress: () => {
-            // In a real app, this would call an API
-            if (transaction) {
-              const updatedTransaction = { ...transaction, status: 'Rejected' as TransactionStatus };
-              updatedTransaction.statusHistory.push({
-                status: 'Rejected',
-                timestamp: new Date().toISOString(),
-                updatedBy: user?._id || ''
-              });
-              setTransaction(updatedTransaction);
+          onPress: async () => {
+            console.log('Reject button pressed');
+            try {
+              setLoading(true);
+
+              // Use mock data if enabled in config
+              if (config.enableMockData) {
+                // In a real app, this would call an API
+                if (transaction) {
+                  const updatedTransaction = { ...transaction, status: 'Rejected' as TransactionStatus };
+                  updatedTransaction.statusHistory.push({
+                    status: 'Rejected',
+                    timestamp: new Date().toISOString(),
+                    updatedBy: user?._id || ''
+                  });
+                  setTransaction(updatedTransaction);
+                }
+                setLoading(false);
+                return;
+              }
+
+              // Update transaction status via API
+              console.log('Rejecting transaction:', id);
+              try {
+                const updatedTransaction = await TransactionService.updateTransactionStatus(
+                  id as string,
+                  'Rejected'
+                );
+                console.log('Transaction rejected successfully:', updatedTransaction);
+                setTransaction(updatedTransaction);
+              } catch (apiError) {
+                console.error('API error rejecting transaction:', apiError);
+                Alert.alert('API Error', 'Failed to reject transaction: ' + apiError.message);
+              }
+            } catch (error) {
+              console.error('Error rejecting transaction:', error);
+              Alert.alert('Error', 'Failed to reject transaction');
+            } finally {
+              setLoading(false);
             }
           }
         }
       ]
     );
   };
-  
+
   const handleComplete = () => {
+    if (!id) return;
+
     Alert.alert(
       'Complete Transaction',
       'Are you sure you want to mark this transaction as completed?',
@@ -267,24 +422,61 @@ export default function TransactionDetailScreen() {
         },
         {
           text: 'Complete',
-          onPress: () => {
-            // In a real app, this would call an API
-            if (transaction) {
-              const updatedTransaction = { ...transaction, status: 'Completed' as TransactionStatus };
-              updatedTransaction.statusHistory.push({
-                status: 'Completed',
-                timestamp: new Date().toISOString(),
-                updatedBy: user?._id || ''
-              });
-              setTransaction(updatedTransaction);
+          onPress: async () => {
+            console.log('Complete button pressed');
+            try {
+              setLoading(true);
+
+              // Use mock data if enabled in config
+              if (config.enableMockData) {
+                // In a real app, this would call an API
+                if (transaction) {
+                  const updatedTransaction = { ...transaction, status: 'Completed' as TransactionStatus };
+                  updatedTransaction.statusHistory.push({
+                    status: 'Completed',
+                    timestamp: new Date().toISOString(),
+                    updatedBy: user?._id || ''
+                  });
+                  setTransaction(updatedTransaction);
+                }
+                setLoading(false);
+                return;
+              }
+
+              // Update transaction status via API
+              console.log('Completing transaction:', id);
+              try {
+                const updatedTransaction = await TransactionService.updateTransactionStatus(
+                  id as string,
+                  'Completed'
+                );
+                console.log('Transaction completed successfully:', updatedTransaction);
+                setTransaction(updatedTransaction);
+
+                // Refresh user profile to get updated talent balance
+                if (user && refreshProfile) {
+                  console.log('Refreshing user profile after transaction completion');
+                  await refreshProfile();
+                }
+              } catch (apiError) {
+                console.error('API error completing transaction:', apiError);
+                Alert.alert('API Error', 'Failed to complete transaction: ' + apiError.message);
+              }
+            } catch (error) {
+              console.error('Error completing transaction:', error);
+              Alert.alert('Error', 'Failed to complete transaction');
+            } finally {
+              setLoading(false);
             }
           }
         }
       ]
     );
   };
-  
+
   const handleCancel = () => {
+    if (!id) return;
+
     Alert.alert(
       'Cancel Transaction',
       'Are you sure you want to cancel this transaction?',
@@ -295,45 +487,117 @@ export default function TransactionDetailScreen() {
         },
         {
           text: 'Yes, Cancel',
-          onPress: () => {
-            // In a real app, this would call an API
-            if (transaction) {
-              const updatedTransaction = { ...transaction, status: 'Cancelled' as TransactionStatus };
-              updatedTransaction.statusHistory.push({
-                status: 'Cancelled',
-                timestamp: new Date().toISOString(),
-                updatedBy: user?._id || ''
-              });
-              setTransaction(updatedTransaction);
+          onPress: async () => {
+            console.log('Cancel button pressed');
+            try {
+              setLoading(true);
+
+              // Use mock data if enabled in config
+              if (config.enableMockData) {
+                // In a real app, this would call an API
+                if (transaction) {
+                  const updatedTransaction = { ...transaction, status: 'Cancelled' as TransactionStatus };
+                  updatedTransaction.statusHistory.push({
+                    status: 'Cancelled',
+                    timestamp: new Date().toISOString(),
+                    updatedBy: user?._id || ''
+                  });
+                  setTransaction(updatedTransaction);
+                }
+                setLoading(false);
+                return;
+              }
+
+              // Update transaction status via API
+              console.log('Cancelling transaction:', id);
+              try {
+                const updatedTransaction = await TransactionService.updateTransactionStatus(
+                  id as string,
+                  'Cancelled'
+                );
+                console.log('Transaction cancelled successfully:', updatedTransaction);
+                setTransaction(updatedTransaction);
+              } catch (apiError) {
+                console.error('API error cancelling transaction:', apiError);
+                Alert.alert('API Error', 'Failed to cancel transaction: ' + apiError.message);
+              }
+            } catch (error) {
+              console.error('Error cancelling transaction:', error);
+              Alert.alert('Error', 'Failed to cancel transaction');
+            } finally {
+              setLoading(false);
             }
           }
         }
       ]
     );
   };
-  
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || sending || !transaction) return;
-    
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || sending || !transaction || !id) return;
+
     setSending(true);
-    
-    // In a real app, this would call an API
-    const updatedTransaction = { ...transaction };
-    updatedTransaction.messages.push({
-      sender: user?._id || '',
-      content: newMessage.trim(),
-      timestamp: new Date().toISOString()
-    });
-    
-    setTransaction(updatedTransaction);
-    setNewMessage('');
-    
-    // Simulate API delay
-    setTimeout(() => {
+
+    try {
+      // Use mock data if enabled in config
+      if (config.enableMockData) {
+        // In a real app, this would call an API
+        const updatedTransaction = { ...transaction };
+        updatedTransaction.messages.push({
+          sender: user?._id || '',
+          content: newMessage.trim(),
+          timestamp: new Date().toISOString()
+        });
+
+        setTransaction(updatedTransaction);
+        setNewMessage('');
+
+        // Simulate API delay
+        setTimeout(() => {
+          setSending(false);
+        }, 500);
+        return;
+      }
+
+      // Send message to API
+      const updatedTransaction = await TransactionService.addTransactionMessage(
+        id as string,
+        newMessage.trim()
+      );
+
+      setTransaction(updatedTransaction);
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      Alert.alert('Error', 'Failed to send message');
+    } finally {
       setSending(false);
-    }, 500);
+    }
   };
-  
+
+  // If not authenticated, show login prompt
+  if (!isAuthenticated) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
+        <View style={styles.errorContainer}>
+          <FontAwesome5 name="lock" size={48} color={colors.text.secondary} />
+          <Text style={[styles.errorText, { color: colors.text.secondary }]}>
+            Authentication Required
+          </Text>
+          <Text style={[styles.errorSubText, { color: colors.text.muted }]}>
+            Please log in to view transaction details
+          </Text>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={() => router.push('/(auth)/login')}
+          >
+            <Text style={styles.buttonText}>Log In</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -341,7 +605,7 @@ export default function TransactionDetailScreen() {
       </View>
     );
   }
-  
+
   if (!transaction) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -357,40 +621,55 @@ export default function TransactionDetailScreen() {
       </View>
     );
   }
-  
+
   const initiator = transaction.initiator as User;
   const recipient = transaction.recipient as User;
   const listing = transaction.listing as any;
-  
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
       <ScrollView style={styles.scrollView}>
         {/* Transaction Header */}
         <View style={styles.header}>
-          <View 
+          <View
             style={[
-              styles.statusBadge, 
+              styles.statusBadge,
               { backgroundColor: getStatusColor(transaction.status) }
             ]}
           >
             <Text style={styles.statusText}>{transaction.status}</Text>
           </View>
-          
+
           <Text style={[styles.transactionId, { color: colors.text.secondary }]}>
             ID: {transaction._id}
           </Text>
-          
+
           <Text style={[styles.date, { color: colors.text.secondary }]}>
             Created: {formatDate(transaction.createdAt)}
           </Text>
         </View>
-        
+
+        {/* User Balance */}
+        <View style={[styles.section, { backgroundColor: colors.background.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
+            Your Talent Balance
+          </Text>
+          <View style={styles.balanceContainer}>
+            <Text style={[styles.balanceAmount, { color: colors.primary }]}>
+              ✦ {user?.talentBalance || 0}
+            </Text>
+            <Text style={[styles.balanceLabel, { color: colors.text.secondary }]}>
+              Available Talents
+            </Text>
+          </View>
+        </View>
+
         {/* Transaction Details */}
         <View style={[styles.section, { backgroundColor: colors.background.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
             Transaction Details
           </Text>
-          
+
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>
               Type:
@@ -399,7 +678,7 @@ export default function TransactionDetailScreen() {
               {transaction.type}
             </Text>
           </View>
-          
+
           {transaction.type !== 'Direct Swap' && (
             <View style={styles.detailRow}>
               <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>
@@ -410,7 +689,7 @@ export default function TransactionDetailScreen() {
               </Text>
             </View>
           )}
-          
+
           {transaction.listing && (
             <View style={styles.detailRow}>
               <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>
@@ -426,13 +705,13 @@ export default function TransactionDetailScreen() {
             </View>
           )}
         </View>
-        
+
         {/* Participants */}
         <View style={[styles.section, { backgroundColor: colors.background.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
             Participants
           </Text>
-          
+
           <View style={styles.participant}>
             <Text style={[styles.participantLabel, { color: colors.text.secondary }]}>
               Initiator:
@@ -447,7 +726,7 @@ export default function TransactionDetailScreen() {
               <FontAwesome5 name="chevron-right" size={14} color={colors.text.secondary} />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.participant}>
             <Text style={[styles.participantLabel, { color: colors.text.secondary }]}>
               Recipient:
@@ -463,17 +742,17 @@ export default function TransactionDetailScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        
+
         {/* Messages */}
         <View style={[styles.section, { backgroundColor: colors.background.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
             Messages
           </Text>
-          
+
           {transaction.messages.map((message, index) => {
             const isSender = isCurrentUser(message.sender as string);
             const senderUser = isSender ? user : (message.sender === initiator._id ? initiator : recipient);
-            
+
             return (
               <View key={index} style={styles.message}>
                 <View style={styles.messageHeader}>
@@ -490,14 +769,14 @@ export default function TransactionDetailScreen() {
               </View>
             );
           })}
-          
+
           {/* New Message Input */}
           <View style={styles.messageInputContainer}>
             <TextInput
               style={[
-                styles.messageInput, 
-                { 
-                  backgroundColor: colors.background.darker, 
+                styles.messageInput,
+                {
+                  backgroundColor: colors.background.darker,
                   color: colors.text.primary,
                   borderColor: colors.border
                 }
@@ -525,22 +804,22 @@ export default function TransactionDetailScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        
+
         {/* Transaction History */}
         <View style={[styles.section, { backgroundColor: colors.background.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
             Transaction History
           </Text>
-          
+
           {transaction.statusHistory.map((item, index) => {
             const updatedByUser = item.updatedBy === initiator._id ? initiator : recipient;
-            
+
             return (
               <View key={index} style={styles.historyItem}>
                 <View style={styles.historyHeader}>
-                  <View 
+                  <View
                     style={[
-                      styles.historyStatus, 
+                      styles.historyStatus,
                       { backgroundColor: getStatusColor(item.status as TransactionStatus) }
                     ]}
                   >
@@ -558,40 +837,52 @@ export default function TransactionDetailScreen() {
           })}
         </View>
       </ScrollView>
-      
+
       {/* Action Buttons */}
       <View style={[styles.actionBar, { backgroundColor: colors.background.darker }]}>
         {canAccept() && (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: colors.success }]}
-            onPress={handleAccept}
+            onPress={() => {
+              console.log('Accept button directly pressed');
+              handleAccept();
+            }}
           >
             <Text style={styles.actionButtonText}>Accept</Text>
           </TouchableOpacity>
         )}
-        
+
         {canReject() && (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: colors.error }]}
-            onPress={handleReject}
+            onPress={() => {
+              console.log('Reject button directly pressed');
+              handleReject();
+            }}
           >
             <Text style={styles.actionButtonText}>Reject</Text>
           </TouchableOpacity>
         )}
-        
+
         {canComplete() && (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: colors.success }]}
-            onPress={handleComplete}
+            onPress={() => {
+              console.log('Complete button directly pressed');
+              handleComplete();
+            }}
           >
             <Text style={styles.actionButtonText}>Complete</Text>
           </TouchableOpacity>
         )}
-        
+
         {canCancel() && (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: colors.error }]}
-            onPress={handleCancel}
+            onPress={() => {
+              console.log('Cancel button directly pressed');
+              handleCancel();
+            }}
           >
             <Text style={styles.actionButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -654,6 +945,18 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: FONT.sizes.medium,
     fontWeight: 'bold',
+  },
+  balanceContainer: {
+    alignItems: 'center',
+    marginVertical: SPACING.medium,
+  },
+  balanceAmount: {
+    fontSize: FONT.sizes.xxl,
+    fontWeight: 'bold',
+    marginBottom: SPACING.xs,
+  },
+  balanceLabel: {
+    fontSize: FONT.sizes.small,
   },
   listingLink: {
     fontSize: FONT.sizes.medium,
@@ -778,5 +1081,16 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: 'bold',
     color: '#000',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.large,
+  },
+  errorSubText: {
+    fontSize: FONT.sizes.medium,
+    textAlign: 'center',
+    marginBottom: SPACING.large,
   },
 });

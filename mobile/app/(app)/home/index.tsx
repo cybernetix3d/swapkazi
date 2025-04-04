@@ -6,107 +6,90 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { Listing, User } from '../../../types';
+import * as ListingService from '../../../services/listingService';
+import * as UserService from '../../../services/userService';
 
-// Mock interfaces for demo data
-interface MockListing {
-  id: string;
-  title: string;
-  category: string;
-  image: string;
-  talentPrice: number;
-  user: {
-    name: string;
-    avatar: string;
-  };
-}
+// Helper function to get image URL from listing
+const getListingImageUrl = (listing: Listing): string => {
+  if (listing.images && listing.images.length > 0) {
+    const firstImage = listing.images[0];
+    if (typeof firstImage === 'string') {
+      return firstImage;
+    } else if (typeof firstImage === 'object' && firstImage.url) {
+      return firstImage.url;
+    }
+  }
+  return 'https://via.placeholder.com/150';
+};
 
-interface NearbyUser {
-  id: string;
-  name: string;
-  avatar: string;
-  skills: string[];
-  distance: string;
-}
+
 
 export default function HomeScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [featuredListings, setFeaturedListings] = useState<MockListing[]>([]);
-  const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
+  const [featuredListings, setFeaturedListings] = useState<Listing[]>([]);
+  const [nearbyUsers, setNearbyUsers] = useState<User[]>([]);
+  const [errorMessage, setError] = useState<string | null>(null);
 
-  // Mock data - replace with actual API calls
+  // Load data on component mount
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    // Simulate API calls with timeout
-    setRefreshing(true);
-    setTimeout(() => {
-      setFeaturedListings([
-        {
-          id: '1',
-          title: 'Handcrafted Pottery',
-          category: 'Crafts',
-          image: 'https://via.placeholder.com/150',
-          talentPrice: 15,
-          user: {
-            name: 'Thabo M.',
-            avatar: 'https://via.placeholder.com/50',
-          },
-        },
-        {
-          id: '2',
-          title: 'Gardening Services',
-          category: 'Services',
-          image: 'https://via.placeholder.com/150',
-          talentPrice: 25,
-          user: {
-            name: 'Lerato K.',
-            avatar: 'https://via.placeholder.com/50',
-          },
-        },
-        {
-          id: '3',
-          title: 'Homemade Bread',
-          category: 'Food',
-          image: 'https://via.placeholder.com/150',
-          talentPrice: 8,
-          user: {
-            name: 'Sipho N.',
-            avatar: 'https://via.placeholder.com/50',
-          },
-        },
-      ]);
+    try {
+      setRefreshing(true);
+      setError(null);
 
-      setNearbyUsers([
-        {
-          id: '1',
-          name: 'Mandla J.',
-          avatar: 'https://via.placeholder.com/50',
-          skills: ['Carpentry', 'Plumbing'],
-          distance: '0.5 km',
-        },
-        {
-          id: '2',
-          name: 'Nomsa T.',
-          avatar: 'https://via.placeholder.com/50',
-          skills: ['Baking', 'Sewing'],
-          distance: '0.8 km',
-        },
-        {
-          id: '3',
-          name: 'Bongani M.',
-          avatar: 'https://via.placeholder.com/50',
-          skills: ['Electronics', 'IT Support'],
-          distance: '1.2 km',
-        },
-      ]);
+      // Fetch featured listings
+      try {
+        const listingsResponse = await ListingService.getListings({
+          isFeatured: true,
+          limit: 3,
+          page: 1
+        });
 
+        if (listingsResponse.success && listingsResponse.data) {
+          setFeaturedListings(listingsResponse.data);
+        } else {
+          setError('Failed to load featured listings');
+          setFeaturedListings([]);
+        }
+      } catch (error) {
+        console.error('Error fetching listings:', error);
+        setError('Error loading listings');
+        setFeaturedListings([]);
+      }
+
+      // Fetch nearby users
+      try {
+        const defaultLocation = [18.4241, -33.9249]; // Cape Town coordinates
+        const usersResponse = await UserService.getNearbyUsers(
+          defaultLocation[0],
+          defaultLocation[1],
+          10000, // 10km radius
+          5 // limit to 5 users
+        );
+
+        if (usersResponse.success && usersResponse.data) {
+          setNearbyUsers(usersResponse.data);
+        } else {
+          setError('Failed to load nearby users');
+          setNearbyUsers([]);
+        }
+      } catch (error) {
+        console.error('Error fetching nearby users:', error);
+        setError('Error loading nearby users');
+        setNearbyUsers([]);
+      }
+    } catch (error) {
+      console.error('Error loading home data:', error);
+      setError('Failed to load data. Please try again.');
+    } finally {
       setRefreshing(false);
-    }, 1000);
+    }
   };
 
   const onRefresh = () => {
@@ -121,6 +104,11 @@ export default function HomeScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
       }
     >
+      {errorMessage && (
+        <View style={[styles.errorContainer, { backgroundColor: colors.error }]}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      )}
       {/* Welcome and Balance Section */}
       <View style={styles.header}>
         <View>
@@ -186,11 +174,11 @@ export default function HomeScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {featuredListings.map((item) => (
             <TouchableOpacity
-              key={item.id}
+              key={item._id}
               style={[styles.listingCard, { backgroundColor: colors.background.card }]}
-              onPress={() => router.push(`/(app)/marketplace/${item.id}`)}
+              onPress={() => router.push(`/(app)/marketplace/${item._id}`)}
             >
-              <Image source={{ uri: item.image }} style={styles.listingImage} />
+              <Image source={{ uri: getListingImageUrl(item) }} style={styles.listingImage} />
               <View style={styles.listingDetails}>
                 <Text style={[styles.listingTitle, { color: colors.text.primary }]}>
                   {item.title}
@@ -203,9 +191,9 @@ export default function HomeScreen() {
                     ✦ {item.talentPrice}
                   </Text>
                   <View style={styles.userInfo}>
-                    <Image source={{ uri: item.user.avatar }} style={styles.userAvatar} />
+                    <Image source={{ uri: typeof item.user === 'string' ? 'https://via.placeholder.com/50' : (item.user.avatar || 'https://via.placeholder.com/50') }} style={styles.userAvatar} />
                     <Text style={[styles.userName, { color: colors.text.secondary }]}>
-                      {item.user.name}
+                      {typeof item.user === 'string' ? 'User' : (item.user.fullName || item.user.username)}
                     </Text>
                   </View>
                 </View>
@@ -231,13 +219,13 @@ export default function HomeScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {nearbyUsers.map((user) => (
             <TouchableOpacity
-              key={user.id}
+              key={user._id}
               style={[styles.userCard, { backgroundColor: colors.background.card }]}
-              onPress={() => router.push(`/(app)/profile/${user.id}`)}
+              onPress={() => router.push(`/(app)/profile/${user._id}`)}
             >
               <Image source={{ uri: user.avatar }} style={styles.userCardAvatar} />
               <Text style={[styles.userCardName, { color: colors.text.primary }]}>
-                {user.name}
+                {user.fullName || user.username}
               </Text>
               <Text style={[styles.userCardSkills, { color: colors.text.secondary }]}>
                 {user.skills.join(', ')}
@@ -245,7 +233,7 @@ export default function HomeScreen() {
               <View style={[styles.distance, { backgroundColor: colors.background.dark }]}>
                 <FontAwesome5 name="map-marker-alt" size={12} color={colors.primary} />
                 <Text style={[styles.distanceText, { color: colors.text.secondary }]}>
-                  {user.distance}
+                  Nearby
                 </Text>
               </View>
             </TouchableOpacity>
@@ -436,5 +424,15 @@ const styles = StyleSheet.create({
   tipText: {
     fontSize: FONT.sizes.small,
     color: '#fff',
+  },
+  errorContainer: {
+    padding: SPACING.medium,
+    marginBottom: SPACING.medium,
+    borderRadius: SIZES.borderRadius.medium,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: FONT.sizes.medium,
+    textAlign: 'center',
   },
 });

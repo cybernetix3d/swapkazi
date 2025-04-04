@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
   TextInput
@@ -36,7 +36,7 @@ const categoryIcons: Record<ListingCategory, string> = {
 export default function MarketplaceScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  
+
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -44,10 +44,10 @@ export default function MarketplaceScreen() {
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<ListingCategory | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  
+
   // Available categories for filtering
   const categories: ListingCategory[] = [
-    'Goods', 'Services', 'Food', 'Crafts', 
+    'Goods', 'Services', 'Food', 'Crafts',
     'Electronics', 'Clothing', 'Furniture', 'Books',
     'Tools', 'Education', 'Transportation', 'Other'
   ];
@@ -70,22 +70,29 @@ export default function MarketplaceScreen() {
         category: selectedCategory || undefined,
       };
 
+      console.log('Fetching listings with filters:', filters);
       const response = await ListingService.getListings(filters);
-      
-      if (response.data) {
+      console.log('Listings response:', response);
+
+      // Check if we have data in the response
+      if (response.success && response.data) {
+        console.log(`Received ${response.data.length} listings`);
+
         if (refresh) {
           setListings(response.data);
         } else {
           setListings((prev) => [...prev, ...response.data]);
         }
-        
+
         // Check if there are more pages
         setHasMore(!!response.page && !!response.totalPages && response.page < response.totalPages);
-        
+
         // Increment page for next fetch
         if (!refresh) {
           setPage((prev) => prev + 1);
         }
+      } else {
+        console.error('Invalid response format:', response);
       }
     } catch (error) {
       console.error('Error fetching listings:', error);
