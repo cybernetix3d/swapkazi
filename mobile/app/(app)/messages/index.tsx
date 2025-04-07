@@ -1,15 +1,17 @@
 // Path: mobile/app/(app)/messages/index.tsx
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Image 
+  Image
 } from 'react-native';
+import ErrorMessage from '../../../components/ErrorMessage';
+import LoadingIndicator from '../../../components/LoadingIndicator';
 import { useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -17,8 +19,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { ConversationListItem } from '../../../types';
 
-// Mock data for development
-const mockConversations: ConversationListItem[] = [
+// Mock data for development - no longer used
+/* const mockConversations: ConversationListItem[] = [
   {
     _id: '1',
     participants: ['1', '2'],
@@ -77,64 +79,94 @@ const mockConversations: ConversationListItem[] = [
     updatedAt: '2023-01-28T09:15:00Z',
     unreadCount: 0
   }
-];
+]; */
 
 export default function MessagesScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const router = useRouter();
-  
+
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchConversations();
   }, []);
-  
+
   const fetchConversations = async () => {
     setLoading(true);
-    // In a real app, this would call an API
-    // For now, we'll use mock data
-    setTimeout(() => {
-      setConversations(mockConversations);
+    setError(null); // Reset error state
+
+    try {
+      // Import the message service
+      const MessageService = await import('../../../services/messageService');
+
+      // Fetch conversations from API
+      console.log('Fetching conversations from API');
+      const conversationsData = await MessageService.getConversations();
+      console.log('Fetched conversations:', conversationsData);
+
+      if (Array.isArray(conversationsData)) {
+        setConversations(conversationsData);
+      } else {
+        console.error('Unexpected response format:', conversationsData);
+        setError('Received an invalid response from the server. Please try again.');
+        setConversations([]);
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      setError('Failed to fetch conversations. Please check your connection and try again.');
+    } finally {
       setLoading(false);
       setRefreshing(false);
-    }, 1000);
+    }
   };
-  
+
   const formatDate = (dateString: string) => {
     const now = new Date();
     const date = new Date(dateString);
-    
+
     // If today, show time
     if (date.toDateString() === now.toDateString()) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-    
+
     // If this week, show day
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
     if (diffDays < 7) {
       return date.toLocaleDateString([], { weekday: 'short' });
     }
-    
+
     // Otherwise show date
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
-  
+
   const handleConversationPress = (id: string) => {
     router.push(`/(app)/messages/${id}`);
   };
-  
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchConversations();
   };
-  
+
   if (loading && !refreshing) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingIndicator message="Loading conversations..." fullScreen />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
+        <ErrorMessage
+          message={error}
+          onRetry={fetchConversations}
+        />
       </View>
     );
   }
@@ -170,7 +202,7 @@ export default function MessagesScreen() {
                 </View>
               )}
             </View>
-            
+
             <View style={styles.contentContainer}>
               <View style={styles.headerRow}>
                 <Text style={[styles.name, { color: colors.text.primary }]}>
@@ -180,11 +212,11 @@ export default function MessagesScreen() {
                   {formatDate(item.lastMessageTime)}
                 </Text>
               </View>
-              
-              <Text 
+
+              <Text
                 style={[
-                  styles.message, 
-                  { 
+                  styles.message,
+                  {
                     color: (item.unreadCount && item.unreadCount > 0) ? colors.text.primary : colors.text.secondary,
                     fontWeight: (item.unreadCount && item.unreadCount > 0) ? 'bold' : 'normal'
                   }
@@ -212,10 +244,19 @@ export default function MessagesScreen() {
             <Text style={[styles.emptySubText, { color: colors.text.muted }]}>
               Start a conversation by messaging someone on a listing
             </Text>
+            <TouchableOpacity
+              style={[styles.refreshButton, { borderColor: colors.text.secondary }]}
+              onPress={fetchConversations}
+            >
+              <FontAwesome5 name="sync" size={16} color={colors.text.secondary} style={styles.refreshIcon} />
+              <Text style={[styles.refreshText, { color: colors.text.secondary }]}>
+                Refresh
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
       />
-      
+
       {/* New Message Button */}
       <TouchableOpacity
         style={[styles.newMessageButton, { backgroundColor: colors.primary }]}
@@ -312,5 +353,20 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: SPACING.medium,
+    paddingVertical: SPACING.small,
+    marginTop: SPACING.large,
+  },
+  refreshIcon: {
+    marginRight: SPACING.small,
+  },
+  refreshText: {
+    fontSize: FONT.sizes.medium,
   },
 });

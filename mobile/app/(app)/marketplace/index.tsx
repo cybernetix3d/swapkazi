@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView
 } from 'react-native';
+import ErrorMessage from '../../../components/ErrorMessage';
+import LoadingIndicator from '../../../components/LoadingIndicator';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -41,6 +43,7 @@ export default function MarketplaceScreen() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<ListingCategory | null>(null);
@@ -100,6 +103,9 @@ export default function MarketplaceScreen() {
       setLoading(true);
     }
 
+    // Reset error state when starting a new fetch
+    setError(null);
+
     try {
       // Build filters object
       const filters = {
@@ -132,9 +138,11 @@ export default function MarketplaceScreen() {
         }
       } else {
         console.error('Invalid response format:', response);
+        setError('Received an invalid response from the server. Please try again.');
       }
     } catch (error) {
       console.error('Error fetching listings:', error);
+      setError('Failed to fetch listings. Please check your connection and try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -293,41 +301,50 @@ export default function MarketplaceScreen() {
         onEndReachedThreshold={0.1}
         ListEmptyComponent={
           !loading ? (
-            <View style={styles.emptyContainer}>
-              <FontAwesome5 name="store-alt-slash" size={48} color={colors.text.secondary} />
-              <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
-                No listings found
-              </Text>
-              <Text style={[styles.emptySubText, { color: colors.text.muted }]}>
-                {(selectedCategory || Object.keys(activeFilters).length > 0) ?
-                  'Try removing some filters to see more listings' :
-                  'There are no listings available at the moment'}
-              </Text>
-              {(selectedCategory || Object.keys(activeFilters).length > 0) && (
+            error ? (
+              <ErrorMessage
+                message={error}
+                onRetry={() => fetchListings(true)}
+              />
+            ) : (
+              <View style={styles.emptyContainer}>
+                <FontAwesome5 name="store-alt-slash" size={48} color={colors.text.secondary} />
+                <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
+                  No listings found
+                </Text>
+                <Text style={[styles.emptySubText, { color: colors.text.muted }]}>
+                  {(selectedCategory || Object.keys(activeFilters).length > 0) ?
+                    'Try removing some filters to see more listings' :
+                    'There are no listings available at the moment'}
+                </Text>
+                {(selectedCategory || Object.keys(activeFilters).length > 0) && (
+                  <TouchableOpacity
+                    style={[styles.clearFilterButton, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                      setSelectedCategory(null);
+                      setActiveFilters({});
+                      router.push('/marketplace');
+                    }}
+                  >
+                    <Text style={[styles.clearFilterText, { color: '#000' }]}>
+                      Clear All Filters
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
-                  style={[styles.clearFilterButton, { backgroundColor: colors.primary }]}
-                  onPress={() => {
-                    setSelectedCategory(null);
-                    setActiveFilters({});
-                    router.push('/marketplace');
-                  }}
+                  style={[styles.refreshButton, { borderColor: colors.text.secondary }]}
+                  onPress={() => fetchListings(true)}
                 >
-                  <Text style={[styles.clearFilterText, { color: '#000' }]}>
-                    Clear All Filters
+                  <FontAwesome5 name="sync" size={16} color={colors.text.secondary} style={styles.refreshIcon} />
+                  <Text style={[styles.refreshText, { color: colors.text.secondary }]}>
+                    Refresh
                   </Text>
                 </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.refreshButton, { borderColor: colors.text.secondary }]}
-                onPress={() => fetchListings(true)}
-              >
-                <FontAwesome5 name="sync" size={16} color={colors.text.secondary} style={styles.refreshIcon} />
-                <Text style={[styles.refreshText, { color: colors.text.secondary }]}>
-                  Refresh
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : null
+              </View>
+            )
+          ) : (
+            <LoadingIndicator message="Loading listings..." />
+          )
         }
         ListHeaderComponent={
           listings.length > 0 ? (

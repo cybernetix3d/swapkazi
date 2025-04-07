@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
+import ErrorMessage from '../../../components/ErrorMessage';
+import LoadingIndicator from '../../../components/LoadingIndicator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -25,12 +27,12 @@ export default function ListingDetailsScreen() {
   const { colors } = useTheme();
   const { user: currentUser } = useAuth();
   const router = useRouter();
-  
+
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
-  
+
   useEffect(() => {
     const fetchListing = async () => {
       try {
@@ -43,72 +45,79 @@ export default function ListingDetailsScreen() {
         setLoading(false);
       }
     };
-    
+
     if (id) {
       fetchListing();
     }
   }, [id]);
-  
+
   const handleContactSeller = () => {
     if (!currentUser) {
       Alert.alert('Login Required', 'You need to be logged in to contact the seller.');
       return;
     }
-    
+
     // Navigate to create conversation
     router.push({
       pathname: '/(app)/messages/new',
-      params: { 
-        userId: typeof listing?.user === 'string' 
-          ? listing?.user 
+      params: {
+        userId: typeof listing?.user === 'string'
+          ? listing?.user
           : (listing?.user as User)._id,
         listingId: listing?._id
       }
     });
   };
-  
+
   const handleStartTransaction = () => {
     if (!currentUser) {
       Alert.alert('Login Required', 'You need to be logged in to make an offer.');
       return;
     }
-    
+
     // Navigate to create transaction
     router.push({
       pathname: '/(app)/transactions/new',
-      params: { 
-        recipientId: typeof listing?.user === 'string' 
-          ? listing?.user 
+      params: {
+        recipientId: typeof listing?.user === 'string'
+          ? listing?.user
           : (listing?.user as User)._id,
         listingId: listing?._id
       }
     });
   };
-  
+
   const handleViewProfile = () => {
-    const sellerId = typeof listing?.user === 'string' 
-      ? listing?.user 
+    const sellerId = typeof listing?.user === 'string'
+      ? listing?.user
       : (listing?.user as User)._id;
-      
+
     router.push(`/(app)/profile/${sellerId}`);
   };
-  
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background.dark }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingIndicator message="Loading listing details..." fullScreen />
       </View>
     );
   }
-  
+
   if (error || !listing) {
     return (
       <View style={[styles.errorContainer, { backgroundColor: colors.background.dark }]}>
-        <FontAwesome5 name="exclamation-circle" size={48} color={colors.error} />
-        <Text style={[styles.errorText, { color: colors.text.primary }]}>
-          {error || 'Listing not found'}
-        </Text>
-        <TouchableOpacity 
+        <ErrorMessage
+          message={error || 'Listing not found'}
+          onRetry={() => {
+            setError(null);
+            setLoading(true);
+            ListingService.getListingById(id)
+              .then(data => setListing(data))
+              .catch(err => setError(err.message || 'Failed to load listing'))
+              .finally(() => setLoading(false));
+          }}
+        />
+        <TouchableOpacity
           style={[styles.backButton, { backgroundColor: colors.primary }]}
           onPress={() => router.back()}
         >
@@ -117,12 +126,14 @@ export default function ListingDetailsScreen() {
       </View>
     );
   }
-  
-  // Handle different user types (string ID vs User object)
-  const seller = typeof listing.user === 'string' 
-    ? { fullName: 'User', avatar: undefined } 
-    : listing.user as User;
-  
+
+  // Handle different user types (string ID vs User object) or missing user
+  const seller = !listing.user
+    ? { fullName: 'Unknown User', avatar: undefined, _id: 'unknown' }
+    : typeof listing.user === 'string'
+      ? { fullName: 'User', avatar: undefined, _id: listing.user }
+      : listing.user as User;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
       <ScrollView>
@@ -130,12 +141,12 @@ export default function ListingDetailsScreen() {
         <View style={styles.imageContainer}>
           {listing.images && listing.images.length > 0 ? (
             <>
-              <Image 
-                source={{ uri: listing.images[currentImageIndex].url }} 
+              <Image
+                source={{ uri: listing.images[currentImageIndex].url }}
                 style={styles.mainImage}
                 resizeMode="cover"
               />
-              
+
               {listing.images.length > 1 && (
                 <View style={styles.thumbnailContainer}>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -145,15 +156,15 @@ export default function ListingDetailsScreen() {
                         onPress={() => setCurrentImageIndex(index)}
                         style={[
                           styles.thumbnail,
-                          currentImageIndex === index && { 
+                          currentImageIndex === index && {
                             borderColor: colors.primary,
-                            borderWidth: 2 
+                            borderWidth: 2
                           }
                         ]}
                       >
-                        <Image 
-                          source={{ uri: image.url }} 
-                          style={styles.thumbnailImage} 
+                        <Image
+                          source={{ uri: image.url }}
+                          style={styles.thumbnailImage}
                         />
                       </TouchableOpacity>
                     ))}
@@ -166,15 +177,15 @@ export default function ListingDetailsScreen() {
               <FontAwesome5 name="image" size={48} color={colors.text.muted} />
             </View>
           )}
-          
+
           {/* Listing Type Badge */}
-          <View 
+          <View
             style={[
-              styles.typeBadge, 
-              { 
-                backgroundColor: listing.listingType === 'Offer' 
-                  ? colors.accent 
-                  : colors.secondary 
+              styles.typeBadge,
+              {
+                backgroundColor: listing.listingType === 'Offer'
+                  ? colors.accent
+                  : colors.secondary
               }
             ]}
           >
@@ -183,7 +194,7 @@ export default function ListingDetailsScreen() {
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.content}>
           {/* Title and Price */}
           <View style={styles.titleContainer}>
@@ -194,7 +205,7 @@ export default function ListingDetailsScreen() {
               <Text style={[styles.talentPrice, { color: colors.primary }]}>
                 ✦ {listing.talentPrice}
               </Text>
-              
+
               {listing.exchangeType !== 'Talent' && (
                 <View style={[styles.exchangeBadge, { backgroundColor: colors.secondary }]}>
                   <Text style={styles.exchangeText}>
@@ -204,7 +215,7 @@ export default function ListingDetailsScreen() {
               )}
             </View>
           </View>
-          
+
           {/* Category and Condition */}
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
@@ -216,7 +227,7 @@ export default function ListingDetailsScreen() {
                 {listing.subCategory ? ` / ${listing.subCategory}` : ''}
               </Text>
             </View>
-            
+
             {listing.condition !== 'Not Applicable' && (
               <View style={styles.detailItem}>
                 <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>
@@ -228,7 +239,7 @@ export default function ListingDetailsScreen() {
               </View>
             )}
           </View>
-          
+
           {/* Description */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
@@ -238,7 +249,7 @@ export default function ListingDetailsScreen() {
               {listing.description}
             </Text>
           </View>
-          
+
           {/* Swap For Section (if applicable) */}
           {listing.exchangeType !== 'Talent' && listing.swapFor && (
             <View style={styles.section}>
@@ -250,25 +261,27 @@ export default function ListingDetailsScreen() {
               </Text>
             </View>
           )}
-          
+
           {/* Location */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
-              Location
-            </Text>
-            <View style={styles.locationRow}>
-              <FontAwesome5 
-                name="map-marker-alt" 
-                size={16} 
-                color={colors.text.secondary} 
-                style={{ marginRight: SPACING.small }}
-              />
-              <Text style={[styles.location, { color: colors.text.secondary }]}>
-                {listing.location.address || 'Location information not available'}
+          {listing.location && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
+                Location
               </Text>
+              <View style={styles.locationRow}>
+                <FontAwesome5
+                  name="map-marker-alt"
+                  size={16}
+                  color={colors.text.secondary}
+                  style={{ marginRight: SPACING.small }}
+                />
+                <Text style={[styles.location, { color: colors.text.secondary }]}>
+                  {listing.location.address || 'Location information not available'}
+                </Text>
+              </View>
             </View>
-          </View>
-          
+          )}
+
           {/* Seller Information */}
           <View style={[styles.sellerCard, { backgroundColor: colors.background.card }]}>
             <View style={styles.sellerInfo}>
@@ -281,7 +294,7 @@ export default function ListingDetailsScreen() {
                   </Text>
                 </View>
               )}
-              
+
               <View>
                 <Text style={[styles.sellerName, { color: colors.text.primary }]}>
                   {seller.fullName}
@@ -293,8 +306,8 @@ export default function ListingDetailsScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[styles.contactButton, { backgroundColor: colors.accent }]}
               onPress={handleContactSeller}
             >
@@ -302,7 +315,7 @@ export default function ListingDetailsScreen() {
               <Text style={styles.contactButtonText}>Contact</Text>
             </TouchableOpacity>
           </View>
-          
+
           {/* Posted Date and Views */}
           <View style={styles.statsRow}>
             <Text style={[styles.statsText, { color: colors.text.muted }]}>
@@ -314,16 +327,16 @@ export default function ListingDetailsScreen() {
           </View>
         </View>
       </ScrollView>
-      
+
       {/* Bottom Action Button */}
       <View style={[styles.bottomBar, { backgroundColor: colors.background.darker }]}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: colors.primary }]}
           onPress={handleStartTransaction}
         >
           {listing.exchangeType === 'Talent' ? (
             <Text style={styles.actionButtonText}>
-              Pay with {listing.talentPrice} Talents
+              Pay with {listing.talentPrice || 0} Talents
             </Text>
           ) : listing.exchangeType === 'Direct Swap' ? (
             <Text style={styles.actionButtonText}>

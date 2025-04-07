@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   ScrollView
 } from 'react-native';
+import ErrorMessage from '../../../components/ErrorMessage';
+import LoadingIndicator from '../../../components/LoadingIndicator';
 import { useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -19,8 +21,8 @@ import { Transaction, TransactionStatus, User, TransactionFilter } from '../../.
 import * as TransactionService from '../../../services/transaction';
 import config from '../../../config';
 
-// Mock data for development
-const mockTransactions: Transaction[] = [
+// Mock data for development - no longer used
+/* const mockTransactions: Transaction[] = [
   {
     _id: '1',
     initiator: {
@@ -195,7 +197,7 @@ const mockTransactions: Transaction[] = [
     createdAt: '2023-02-05T10:00:00Z',
     updatedAt: '2023-02-05T14:30:00Z'
   }
-];
+]; */
 
 export default function TransactionsScreen() {
   const { colors } = useTheme();
@@ -205,6 +207,7 @@ export default function TransactionsScreen() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<TransactionStatus | 'All'>('All');
 
   useEffect(() => {
@@ -213,6 +216,7 @@ export default function TransactionsScreen() {
 
   const fetchTransactions = async () => {
     setLoading(true);
+    setError(null); // Reset error state
 
     // If not authenticated, don't try to fetch transactions
     if (!isAuthenticated) {
@@ -224,26 +228,6 @@ export default function TransactionsScreen() {
     }
 
     try {
-      // Use mock data if enabled in config
-      if (config.enableMockData) {
-        // For now, we'll use mock data
-        setTimeout(() => {
-          let filteredTransactions = [...mockTransactions];
-
-          // Apply status filter if not "All"
-          if (statusFilter !== 'All') {
-            filteredTransactions = filteredTransactions.filter(
-              transaction => transaction.status === statusFilter
-            );
-          }
-
-          setTransactions(filteredTransactions);
-          setLoading(false);
-          setRefreshing(false);
-        }, 1000);
-        return;
-      }
-
       // Prepare filter
       const filter: TransactionFilter = {};
 
@@ -261,10 +245,12 @@ export default function TransactionsScreen() {
         setTransactions(response.data);
       } else {
         setTransactions([]);
+        setError('No transactions found. The response format was unexpected.');
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
       setTransactions([]);
+      setError('Failed to fetch transactions. Please check your connection and try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -380,7 +366,19 @@ export default function TransactionsScreen() {
   if (loading && !refreshing) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingIndicator message="Loading transactions..." fullScreen />
+      </View>
+    );
+  }
+
+  if (error && transactions.length === 0) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
+        {renderStatusFilter()}
+        <ErrorMessage
+          message={error}
+          onRetry={fetchTransactions}
+        />
       </View>
     );
   }

@@ -19,8 +19,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { Conversation, Message, User } from '../../../types';
 
-// Mock data for development
-const mockUser: User = {
+// Mock data for development - no longer used
+/* const mockUser: User = {
   _id: '1',
   username: 'current_user',
   email: 'user@example.com',
@@ -123,7 +123,7 @@ const mockMessages: Message[] = [
     createdAt: '2023-02-01T14:40:00Z',
     updatedAt: '2023-02-01T14:40:00Z'
   }
-];
+]; */
 
 export default function ConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -131,73 +131,87 @@ export default function ConversationScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
-  
+
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [messageText, setMessageText] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
-  
+
   useEffect(() => {
     fetchConversation();
   }, [id]);
-  
+
   const fetchConversation = async () => {
     setLoading(true);
-    // In a real app, this would call an API
-    // For now, we'll use mock data
-    setTimeout(() => {
-      setMessages(mockMessages);
+
+    try {
+      // Import the message service
+      const MessageService = await import('../../../services/messageService');
+
+      // Fetch conversation and messages
+      const conversationData = await MessageService.getConversation(id as string);
+      const messagesData = await MessageService.getMessages(id as string);
+
+      console.log('Fetched conversation:', conversationData);
+      console.log('Fetched messages:', messagesData);
+
+      setConversation(conversationData);
+      setMessages(messagesData);
+    } catch (error) {
+      console.error('Error fetching conversation:', error);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
-  
+
   const sendMessage = async () => {
     if (!messageText.trim() || sending) return;
-    
+
     setSending(true);
-    
-    // In a real app, this would call an API to send the message
-    // For now, we'll just add it to our local state
-    const newMessage: Message = {
-      _id: Date.now().toString(),
-      conversation: id,
-      sender: mockUser,
-      content: messageText.trim(),
-      readBy: [],
-      isSystemMessage: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Add message to state
-    setMessages(prev => [...prev, newMessage]);
-    setMessageText('');
-    
-    // Simulate network delay
-    setTimeout(() => {
-      setSending(false);
-      
+
+    try {
+      // Import the message service
+      const MessageService = await import('../../../services/messageService');
+
+      // Send message to API
+      const messageData = {
+        conversationId: id as string,
+        content: messageText.trim()
+      };
+
+      console.log('Sending message:', messageData);
+      const newMessage = await MessageService.sendMessage(messageData);
+      console.log('Message sent:', newMessage);
+
+      // Add message to state
+      setMessages(prev => [...prev, newMessage]);
+      setMessageText('');
+
       // Scroll to bottom after message is sent
       if (flatListRef.current) {
         flatListRef.current.scrollToEnd({ animated: true });
       }
-    }, 500);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setSending(false);
+    }
   };
-  
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
-  
+
   const isCurrentUser = (senderId: string) => {
     return senderId === mockUser._id;
   };
-  
+
   // Render message bubble
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = isCurrentUser((item.sender as User)._id);
-    
+
     return (
       <View
         style={[
@@ -233,7 +247,7 @@ export default function ConversationScreen() {
       </View>
     );
   };
-  
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -241,7 +255,7 @@ export default function ConversationScreen() {
       </View>
     );
   }
-  
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background.dark }]}
@@ -259,7 +273,7 @@ export default function ConversationScreen() {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
       />
-      
+
       <View style={[styles.inputContainer, { backgroundColor: colors.background.darker }]}>
         <TextInput
           style={[styles.input, { backgroundColor: colors.background.card, color: colors.text.primary }]}
