@@ -46,7 +46,7 @@ export default function MarketplaceScreen() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const [selectedCategory, setSelectedCategory] = useState<ListingCategory | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<ListingCategory[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
 
@@ -65,13 +65,31 @@ export default function MarketplaceScreen() {
     if (params) {
       const newFilters: Record<string, string> = {};
 
-      // Process category
-      if (params.category && categories.includes(params.category as ListingCategory)) {
-        setSelectedCategory(params.category as ListingCategory);
-      } else if (params.category === null || params.category === undefined) {
-        // Clear category if not specified
-        setSelectedCategory(null);
+      // Process categories - support multiple selections
+      if (params.categories) {
+        try {
+          // Try to parse the categories parameter as JSON
+          const categoriesParam = JSON.parse(params.categories);
+          if (Array.isArray(categoriesParam)) {
+            // Filter to only include valid categories
+            const validCategories = categoriesParam.filter(cat =>
+              categories.includes(cat as ListingCategory)
+            ) as ListingCategory[];
+
+            console.log('Setting categories from params:', validCategories);
+            setSelectedCategories(validCategories);
+          }
+        } catch (e) {
+          console.error('Error parsing categories parameter:', e);
+        }
+      } else if (params.category) {
+        // For backward compatibility, also support single category
+        if (categories.includes(params.category as ListingCategory)) {
+          console.log('Setting single category from params:', params.category);
+          setSelectedCategories([params.category as ListingCategory]);
+        }
       }
+      // Don't reset the categories if not specified - this allows the category buttons to maintain their state
 
       // Process other filters
       ['exchangeType', 'listingType', 'condition', 'minPrice', 'maxPrice', 'distance', 'sortBy'].forEach(key => {
@@ -111,7 +129,8 @@ export default function MarketplaceScreen() {
       const filters = {
         page: refresh ? 1 : page,
         limit: 10,
-        category: selectedCategory || undefined,
+        // Handle multiple categories
+        ...(selectedCategories.length > 0 && { categories: selectedCategories }),
         ...activeFilters
       };
 
@@ -147,25 +166,38 @@ export default function MarketplaceScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, hasMore, loading, selectedCategory, activeFilters]);
+  }, [page, hasMore, loading, selectedCategories, activeFilters]);
 
   // Fetch listings when component mounts or filters change
   useEffect(() => {
     // Create a stable reference to the filters for dependency tracking
     const filtersKey = JSON.stringify({
-      category: selectedCategory,
+      categories: selectedCategories,
       ...activeFilters
     });
 
-    console.log('Fetching listings due to filter change or initial load');
-    fetchListings(true);
+    console.log('Filters changed, new filters:', { categories: selectedCategories, ...activeFilters });
+
+    // Use a small delay to prevent race conditions with other state updates
+    const timer = setTimeout(() => {
+      console.log('Fetching listings due to filter change');
+      fetchListings(true);
+    }, 50);
+
+    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, JSON.stringify(activeFilters)]);
+  }, [JSON.stringify(selectedCategories), JSON.stringify(activeFilters)]);
 
   // Initial fetch on mount - only once
   useEffect(() => {
-    console.log('Initial fetch on mount');
-    fetchListings(true);
+    // Only do the initial fetch if no categories are selected and no active filters
+    // This prevents double-fetching when filters are applied
+    if (selectedCategories.length === 0 && Object.keys(activeFilters).length === 0) {
+      console.log('Initial fetch on mount - no filters active');
+      fetchListings(true);
+    } else {
+      console.log('Skipping initial fetch because filters are active');
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -181,13 +213,49 @@ export default function MarketplaceScreen() {
     }
   };
 
-  // Handle category selection
+  // Handle category selection - now supports multiple selections
   const handleCategorySelect = (category: ListingCategory) => {
-    if (selectedCategory === category) {
-      setSelectedCategory(null);
-    } else {
-      setSelectedCategory(category);
-    }
+    console.log('Category selected:', category);
+    console.log('Current selectedCategories:', selectedCategories);
+    console.log('Current activeFilters:', activeFilters);
+
+    // Prevent immediate re-renders by using a timeout
+    setTimeout(() => {
+      let newSelectedCategories: ListingCategory[];
+
+      // Check if the category is already selected
+      if (selectedCategories.includes(category)) {
+        // If already selected, remove it (toggle off)
+        console.log('Deselecting category:', category);
+        newSelectedCategories = selectedCategories.filter(cat => cat !== category);
+      } else {
+        // If not selected, add it to the selection
+        console.log('Adding category to selection:', category);
+        newSelectedCategories = [...selectedCategories, category];
+      }
+
+      // Update state with new selection
+      setSelectedCategories(newSelectedCategories);
+
+      // Update URL params to keep UI and URL in sync
+      const newParams = { ...params };
+      if (newSelectedCategories.length > 0) {
+        // Store as JSON string to support multiple values
+        newParams.categories = JSON.stringify(newSelectedCategories);
+        // Remove old single category param if it exists
+        delete newParams.category;
+      } else {
+        // If no categories selected, remove the parameter
+        delete newParams.categories;
+        delete newParams.category;
+      }
+      router.setParams(newParams);
+
+      // Add haptic feedback if available
+      if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(50); // Short vibration for feedback
+      }
+    }, 10); // Small timeout to prevent race conditions
   };
 
   // Handle search
@@ -221,16 +289,57 @@ export default function MarketplaceScreen() {
 
         {/* Filter Button */}
         <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: colors.background.dark }]}
-          onPress={() => router.push('/(app)/marketplace/filters')}
+          style={[
+            styles.filterButton,
+            { backgroundColor: colors.background.dark },
+            // Add indicator dot when filters are active
+            Object.keys(activeFilters).length > 0 && styles.filterButtonActive
+          ]}
+          onPress={() => {
+            console.log('Navigating to filters with categories:', selectedCategories);
+            router.push({
+              pathname: '/(app)/marketplace/filters',
+              params: {
+                // Pass selected categories as JSON string
+                ...(selectedCategories.length > 0 && { categories: JSON.stringify(selectedCategories) }),
+                // Also pass other active filters
+                ...activeFilters
+              }
+            });
+          }}
         >
           <FontAwesome5 name="sliders-h" size={18} color={colors.text.primary} />
+          {Object.keys(activeFilters).length > 0 && (
+            <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.filterBadgeText}>{Object.keys(activeFilters).length}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
       {/* Category Chips */}
       <View style={styles.categoryChipsContainer}>
-        <Text style={[styles.categoryLabel, { color: colors.text.secondary }]}>Categories:</Text>
+        <View style={styles.categoryHeaderContainer}>
+          <Text style={[styles.categoryLabel, { color: colors.text.secondary }]}>
+            Categories {selectedCategories.length > 0 && `(${selectedCategories.length} selected)`}:
+          </Text>
+          {selectedCategories.length > 0 && (
+            <TouchableOpacity
+              style={[styles.clearCategoryButton, { borderColor: colors.primary }]}
+              onPress={() => {
+                setSelectedCategories([]);
+                // Update URL params
+                const newParams = { ...params };
+                delete newParams.categories;
+                delete newParams.category;
+                router.setParams(newParams);
+              }}
+            >
+              <Text style={[styles.clearCategoryText, { color: colors.primary }]}>Clear All</Text>
+              <FontAwesome5 name="times" size={12} color={colors.primary} style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          )}
+        </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -241,20 +350,34 @@ export default function MarketplaceScreen() {
               key={item}
               style={[
                 styles.categoryChip,
-                selectedCategory === item && { backgroundColor: colors.primary }
+                selectedCategories.includes(item) ?
+                  {
+                    backgroundColor: colors.primary,
+                    borderWidth: 2,
+                    borderColor: '#FFD700', // Gold border for selected category
+                    transform: [{ scale: 1.05 }] // Slightly larger
+                  } :
+                  {
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.3)'
+                  },
+                // Add a shadow for better visibility
+                { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 2, elevation: 3 }
               ]}
               onPress={() => handleCategorySelect(item)}
+              activeOpacity={0.4} // Make it more responsive with lower opacity on press
             >
               <FontAwesome5
                 name={categoryIcons[item]}
                 size={16}
-                color={selectedCategory === item ? '#000' : colors.text.secondary}
+                color={selectedCategories.includes(item) ? '#000' : colors.text.secondary}
                 style={styles.categoryIcon}
               />
               <Text
                 style={[
                   styles.categoryText,
-                  { color: selectedCategory === item ? '#000' : colors.text.secondary }
+                  { color: selectedCategories.includes(item) ? '#000' : colors.text.secondary }
                 ]}
               >
                 {item}
@@ -262,17 +385,7 @@ export default function MarketplaceScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
-        {selectedCategory && (
-          <TouchableOpacity
-            style={[styles.clearFilterChip, { borderColor: colors.primary }]}
-            onPress={() => setSelectedCategory(null)}
-          >
-            <Text style={[styles.clearFilterText, { color: colors.primary }]}>
-              Clear
-            </Text>
-            <FontAwesome5 name="times" size={12} color={colors.primary} style={{ marginLeft: 4 }} />
-          </TouchableOpacity>
-        )}
+        {/* Removed duplicate clear button */}
       </View>
 
       {/* Create Listing Button */}
@@ -313,15 +426,15 @@ export default function MarketplaceScreen() {
                   No listings found
                 </Text>
                 <Text style={[styles.emptySubText, { color: colors.text.muted }]}>
-                  {(selectedCategory || Object.keys(activeFilters).length > 0) ?
+                  {(selectedCategories.length > 0 || Object.keys(activeFilters).length > 0) ?
                     'Try removing some filters to see more listings' :
                     'There are no listings available at the moment'}
                 </Text>
-                {(selectedCategory || Object.keys(activeFilters).length > 0) && (
+                {(selectedCategories.length > 0 || Object.keys(activeFilters).length > 0) && (
                   <TouchableOpacity
                     style={[styles.clearFilterButton, { backgroundColor: colors.primary }]}
                     onPress={() => {
-                      setSelectedCategory(null);
+                      setSelectedCategories([]);
                       setActiveFilters({});
                       router.push('/marketplace');
                     }}
@@ -363,10 +476,10 @@ export default function MarketplaceScreen() {
                   </Text>
                 </View>
               )}
-              {selectedCategory && !['Services', 'Food', 'Education', 'Crafts'].includes(selectedCategory) && (
+              {selectedCategories.length > 0 && selectedCategories.some(cat => !['Services', 'Food', 'Education', 'Crafts'].includes(cat)) && (
                 <View style={[styles.noteContainer, { backgroundColor: colors.background.card }]}>
                   <Text style={[styles.noteText, { color: colors.primary }]}>
-                    Note: No listings in "{selectedCategory}" category. Showing all categories.
+                    Note: Some selected categories may not have listings. Showing all available categories.
                   </Text>
                 </View>
               )}
@@ -419,15 +532,53 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.borderRadius.medium,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  filterButtonActive: {
+    borderWidth: 1,
+    borderColor: '#FFD700', // Gold color to indicate active filters
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#000',
   },
   categoryChipsContainer: {
     marginBottom: SPACING.medium,
   },
+  categoryHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.small,
+    marginBottom: SPACING.small,
+  },
   categoryLabel: {
     fontSize: FONT.sizes.small,
     fontWeight: 'bold',
-    marginBottom: SPACING.small,
+  },
+  clearCategoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: SPACING.small,
+    paddingVertical: 4,
+    borderRadius: SIZES.borderRadius.round,
+    borderWidth: 1,
+  },
+  clearCategoryText: {
+    fontSize: FONT.sizes.xs,
+    fontWeight: 'bold',
   },
   categoriesContainer: {
     paddingRight: SPACING.medium,
@@ -440,8 +591,8 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.small,
     marginRight: SPACING.small,
     borderRadius: SIZES.borderRadius.round,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    height: 36,
+    height: 40, // Slightly taller for better touch target
+    // Border and background color are set in the component
   },
   clearFilterChip: {
     flexDirection: 'row',

@@ -45,9 +45,16 @@ const getConversations = async (req, res) => {
 // @access  Private
 const createConversation = async (req, res) => {
   try {
+    console.log('Create conversation request body:', req.body);
+    console.log('Current user:', req.user._id);
+
     const { userId, listingId } = req.body;
 
+    console.log('Extracted userId:', userId);
+    console.log('Extracted listingId:', listingId);
+
     if (!userId) {
+      console.log('Missing userId in request');
       return res.status(400).json({ message: 'User ID is required' });
     }
 
@@ -67,28 +74,64 @@ const createConversation = async (req, res) => {
     }
 
     // Check if a conversation already exists between these users
+    console.log('Checking for existing conversation between users:', req.user._id, 'and', userId);
     let conversation = await Conversation.findOne({
       participants: { $all: [req.user._id, userId] },
       listing: listingId || { $exists: false },
     });
 
+    if (conversation) {
+      console.log('Found existing conversation:', conversation._id);
+    } else {
+      console.log('No existing conversation found, creating new one');
+    }
+
     // If no conversation exists, create a new one
     if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [req.user._id, userId],
-        listing: listingId || null,
-      });
+      try {
+        conversation = await Conversation.create({
+          participants: [req.user._id, userId],
+          listing: listingId || null,
+        });
+        console.log('Created new conversation:', conversation._id);
+      } catch (createError) {
+        console.error('Error creating conversation:', createError);
+        return res.status(500).json({ message: 'Failed to create conversation', error: createError.message });
+      }
     }
 
     // Populate the conversation with user details
-    const populatedConversation = await Conversation.findById(conversation._id)
-      .populate('participants', 'username fullName avatar')
-      .populate('listing', 'title images');
+    console.log('Populating conversation details for:', conversation._id);
+    try {
+      const populatedConversation = await Conversation.findById(conversation._id)
+        .populate('participants', 'username fullName avatar')
+        .populate('listing', 'title images');
 
-    res.json(populatedConversation);
+      console.log('Populated conversation:', {
+        id: populatedConversation._id,
+        participants: populatedConversation.participants.map(p => p._id),
+      });
+
+      res.status(200).json({
+        success: true,
+        data: populatedConversation,
+        message: 'Conversation retrieved successfully'
+      });
+    } catch (populateError) {
+      console.error('Error populating conversation:', populateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve conversation details',
+        error: populateError.message
+      });
+    }
   } catch (error) {
     console.error('Create conversation error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating conversation',
+      error: error.message
+    });
   }
 };
 

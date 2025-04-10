@@ -338,11 +338,11 @@ export interface ApiResponse<T> {
 
 export interface PaginatedResponse<T> {
   success: boolean;
-  data?: T[];
-  count?: number;
-  total?: number;
-  page?: number;
-  totalPages?: number;
+  data: T[];
+  total: number;
+  page: number;
+  pages: number;
+  limit?: number;
   message?: string;
   error?: string;
 }

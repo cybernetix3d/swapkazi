@@ -306,11 +306,19 @@ export const getListings = async (filters?: ListingFilter): Promise<PaginatedRes
 
       // Apply filters if provided
       if (filters) {
-        // Category filters
-        if (filters.category) {
+        // Category filters - support both single category and multiple categories
+        if (filters.categories && Array.isArray(filters.categories)) {
+          console.log(`Mock data: Filtering by multiple categories:`, filters.categories);
+          filteredListings = filteredListings.filter(
+            listing => filters.categories.includes(listing.category)
+          );
+          console.log(`Mock data: After categories filter: ${filteredListings.length} listings`);
+        } else if (filters.category) {
+          console.log(`Mock data: Filtering by single category: ${filters.category}`);
           filteredListings = filteredListings.filter(
             listing => listing.category === filters.category
           );
+          console.log(`Mock data: After category filter: ${filteredListings.length} listings`);
         }
 
         if (filters.subCategory) {
@@ -497,21 +505,21 @@ export const getListings = async (filters?: ListingFilter): Promise<PaginatedRes
     const apiParams: Record<string, any> = { ...filters };
 
     // Handle special parameters
-    // Handle category
-    if (filters.category) {
-      console.log(`Filtering by category: ${filters.category}`);
+    // Handle categories - support both single category and multiple categories
+    if (filters.categories && Array.isArray(filters.categories)) {
+      console.log(`Filtering by multiple categories:`, filters.categories);
+      // Always apply the categories filter, even if there might not be results
+      // This allows the UI to show "No results found" for empty categories
+      apiParams.categories = filters.categories;
 
-      // Check if we have listings with this category
-      // The database has: Services, Food, Education, Crafts
-      const validCategories = ['Services', 'Food', 'Education', 'Crafts'];
+      // Log the API params after setting categories
+      console.log('API params after setting categories:', apiParams);
+    } else if (filters.category) {
+      console.log(`Filtering by single category: ${filters.category}`);
+      // For backward compatibility
+      apiParams.category = filters.category;
 
-      if (!validCategories.includes(filters.category)) {
-        console.log(`No listings with category "${filters.category}" found. Using all categories.`);
-        // Don't apply category filter to show all results
-        delete apiParams.category;
-      } else {
-        apiParams.category = filters.category;
-      }
+      console.log('API params after setting single category:', apiParams);
     }
     // Handle exchangeType
     if (filters.exchangeType) {
@@ -1055,6 +1063,49 @@ export const getNearbyListings = async (longitude: number, latitude: number, dis
 /**
  * Search listings
  */
+/**
+ * Get listings by user ID
+ */
+export const getUserListings = async (userId: string): Promise<Listing[]> => {
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Filter mock listings by user ID
+      const userListings = mockListings.filter(listing => {
+        if (typeof listing.user === 'string') {
+          return listing.user === userId;
+        } else {
+          return (listing.user as User)._id === userId;
+        }
+      });
+
+      return userListings;
+    }
+
+    // Real API call
+    const response = await api.get<ApiResponse<Listing[]>>(`/listings/user/${userId}`);
+
+    if (!response.data.success && !Array.isArray(response.data)) {
+      throw new Error(response.data.message || 'Failed to fetch user listings');
+    }
+
+    // Handle different response formats
+    if (Array.isArray(response.data)) {
+      return response.data;
+    } else if (response.data.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error fetching user listings:', error);
+    throw new Error(handleApiError(error));
+  }
+};
+
 export const searchListings = async (query: string, category?: string, exchangeType?: string): Promise<Listing[]> => {
   try {
     // Use mock data if enabled in config

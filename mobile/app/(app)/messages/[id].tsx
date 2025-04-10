@@ -157,7 +157,18 @@ export default function ConversationScreen() {
       console.log('Fetched messages:', messagesData);
 
       setConversation(conversationData);
-      setMessages(messagesData);
+
+      // Handle different message response formats
+      if (Array.isArray(messagesData)) {
+        // Direct array of messages
+        setMessages(messagesData);
+      } else if (messagesData && typeof messagesData === 'object' && 'data' in messagesData && Array.isArray(messagesData.data)) {
+        // Paginated response
+        setMessages(messagesData.data);
+      } else {
+        // Empty or invalid response
+        setMessages([]);
+      }
     } catch (error) {
       console.error('Error fetching conversation:', error);
     } finally {

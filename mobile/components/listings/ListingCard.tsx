@@ -5,6 +5,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Listing, User } from '../../types';
 import { FONT, SPACING, SIZES } from '../../constants/Theme';
+import DefaultAvatar from '../DefaultAvatar';
 
 interface ListingCardProps {
   listing: Listing;
@@ -22,10 +23,10 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
     : listing.user as User;
 
   const userName = userObj?.fullName || 'Unknown User';
-  const userAvatar = userObj?.avatar || 'https://via.placeholder.com/50';
+  const userId = userObj?._id || (typeof listing.user === 'string' ? listing.user : '');
 
-  // Default image if no images are provided
-  let mainImage = 'https://via.placeholder.com/400';
+  // Get the main image URL if available
+  let mainImage = '';
 
   if (listing.images && listing.images.length > 0) {
     // Handle different image formats
@@ -54,7 +55,13 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
         style={[styles.compactContainer, { backgroundColor: colors.background.card }]}
         onPress={handlePress}
       >
-        <Image source={{ uri: mainImage }} style={styles.compactImage} />
+        {mainImage ? (
+          <Image source={{ uri: mainImage }} style={styles.compactImage} />
+        ) : (
+          <View style={[styles.compactImage, { backgroundColor: colors.background.dark, justifyContent: 'center', alignItems: 'center' }]}>
+            <FontAwesome5 name="image" size={24} color={colors.text.muted} />
+          </View>
+        )}
         <View style={styles.compactContent}>
           <Text
             style={[styles.compactTitle, { color: colors.text.primary }]}
@@ -89,7 +96,14 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
       onPress={handlePress}
       activeOpacity={0.9}
     >
-      <Image source={{ uri: mainImage }} style={styles.image} />
+      {mainImage ? (
+        <Image source={{ uri: mainImage }} style={styles.image} />
+      ) : (
+        <View style={[styles.image, { backgroundColor: colors.background.dark, justifyContent: 'center', alignItems: 'center' }]}>
+          <FontAwesome5 name="image" size={36} color={colors.text.muted} />
+          <Text style={[styles.noImageText, { color: colors.text.muted }]}>No Image Available</Text>
+        </View>
+      )}
 
       {/* Listing Type Badge */}
       <View
@@ -137,7 +151,16 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
           </View>
 
           <View style={styles.userInfo}>
-            <Image source={{ uri: userAvatar }} style={styles.userAvatar} />
+            {userObj?.avatar ? (
+              <Image source={{ uri: userObj.avatar }} style={styles.userAvatar} />
+            ) : (
+              <DefaultAvatar
+                name={userName}
+                userId={userId}
+                size={24}
+                style={styles.userAvatar}
+              />
+            )}
             <Text style={[styles.userName, { color: colors.text.secondary }]}>
               {userName}
             </Text>
@@ -257,6 +280,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  noImageText: {
+    marginTop: SPACING.small,
+    fontSize: FONT.sizes.small,
+    fontWeight: '500',
   },
 });
 
