@@ -13,15 +13,47 @@ import {
  */
 export const getConversations = async (): Promise<ConversationListItem[]> => {
   try {
-    const response = await api.get<ApiResponse<ConversationListItem[]>>('/messages/conversations');
+    console.log('Fetching all conversations');
+    const response = await api.get<any>('/messages/conversations');
 
-    if (!response.data.success || !response.data.data) {
+    console.log('Conversations response:', JSON.stringify(response.data));
+
+    // Handle different response formats
+    if (Array.isArray(response.data)) {
+      // Direct array of conversations
+      console.log('Server returned direct array of conversations');
+      return response.data;
+    } else if (response.data.data && Array.isArray(response.data.data)) {
+      // Wrapped in data property
+      console.log('Server returned wrapped conversations object');
+      return response.data.data;
+    } else if (response.data.conversations && Array.isArray(response.data.conversations)) {
+      // Conversations property
+      console.log('Server returned conversations in conversations property');
+      return response.data.conversations;
+    } else if (!response.data.success) {
+      // Error response
       throw new Error(response.data.message || 'Failed to fetch conversations');
+    } else {
+      // Empty or unexpected format
+      console.error('Unexpected response format:', response.data);
+      return [];
+    }
+  } catch (error: any) {
+    console.error('Error in getConversations:', error);
+
+    // Log detailed error information
+    if (error.response) {
+      console.error('Response data:', JSON.stringify(error.response.data));
+      console.error('Response status:', error.response.status);
+    } else if (error.request) {
+      console.error('No response received. Request:', JSON.stringify(error.request));
+    } else {
+      console.error('Error message:', error.message);
     }
 
-    return response.data.data;
-  } catch (error) {
-    throw new Error(handleApiError(error));
+    // Return empty array instead of throwing
+    return [];
   }
 };
 

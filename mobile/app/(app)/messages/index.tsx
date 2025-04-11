@@ -83,7 +83,7 @@ import { ConversationListItem } from '../../../types';
 
 export default function MessagesScreen() {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
   const router = useRouter();
 
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
@@ -182,17 +182,21 @@ export default function MessagesScreen() {
             onPress={() => handleConversationPress(item._id)}
           >
             <View style={styles.avatarContainer}>
-              {item.otherParticipant.avatar ? (
+              {item.otherParticipant && item.otherParticipant.avatar ? (
                 <View style={styles.avatar}>
                   {/* In a real app, this would be an Image component */}
                   <Text style={{ fontSize: 20, color: '#fff' }}>
-                    {item.otherParticipant.fullName.charAt(0)}
+                    {item.otherParticipant.fullName?.charAt(0) || '?'}
                   </Text>
                 </View>
               ) : (
                 <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
                   <Text style={{ fontSize: 20, color: '#000' }}>
-                    {item.otherParticipant.fullName.charAt(0)}
+                    {item.otherParticipant?.fullName?.charAt(0) ||
+                     (item.participants && item.participants[0] !== currentUser?._id ?
+                      item.participants[0].charAt(0) :
+                      item.participants && item.participants[1] ?
+                      item.participants[1].charAt(0) : '?')}
                   </Text>
                 </View>
               )}
@@ -206,10 +210,16 @@ export default function MessagesScreen() {
             <View style={styles.contentContainer}>
               <View style={styles.headerRow}>
                 <Text style={[styles.name, { color: colors.text.primary }]}>
-                  {item.otherParticipant.fullName}
+                  {item.otherParticipant?.fullName ||
+                   (item.participants && item.participants[0] !== currentUser?._id ?
+                    `User ${item.participants[0]}` :
+                    item.participants && item.participants[1] ?
+                    `User ${item.participants[1]}` : 'Unknown User')}
                 </Text>
                 <Text style={[styles.time, { color: colors.text.secondary }]}>
-                  {formatDate(item.lastMessageTime)}
+                  {item.lastMessageTime ? formatDate(item.lastMessageTime) :
+                   item.updatedAt ? formatDate(item.updatedAt) :
+                   item.createdAt ? formatDate(item.createdAt) : ''}
                 </Text>
               </View>
 
@@ -223,7 +233,7 @@ export default function MessagesScreen() {
                 ]}
                 numberOfLines={2}
               >
-                {item.lastMessageContent}
+                {item.lastMessageContent || 'No messages yet'}
               </Text>
             </View>
           </TouchableOpacity>

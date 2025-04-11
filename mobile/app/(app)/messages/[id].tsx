@@ -128,7 +128,7 @@ const mockMessages: Message[] = [
 export default function ConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
 
@@ -216,12 +216,25 @@ export default function ConversationScreen() {
   };
 
   const isCurrentUser = (senderId: string) => {
-    return senderId === mockUser._id;
+    return senderId === currentUser?._id;
   };
 
   // Render message bubble
   const renderMessage = ({ item }: { item: Message }) => {
-    const isUser = isCurrentUser((item.sender as User)._id);
+    // Handle different sender formats
+    let senderId = '';
+
+    if (item.sender) {
+      if (typeof item.sender === 'string') {
+        // If sender is just a string ID
+        senderId = item.sender;
+      } else if (typeof item.sender === 'object' && '_id' in item.sender) {
+        // If sender is a User object
+        senderId = (item.sender as User)._id;
+      }
+    }
+
+    const isUser = isCurrentUser(senderId);
 
     return (
       <View
@@ -244,7 +257,7 @@ export default function ConversationScreen() {
               { color: isUser ? '#000' : colors.text.primary }
             ]}
           >
-            {item.content}
+            {item.content || ''}
           </Text>
           <Text
             style={[
@@ -252,7 +265,7 @@ export default function ConversationScreen() {
               { color: isUser ? 'rgba(0,0,0,0.6)' : colors.text.secondary }
             ]}
           >
-            {formatTime(item.createdAt)}
+            {item.createdAt ? formatTime(item.createdAt) : ''}
           </Text>
         </View>
       </View>
