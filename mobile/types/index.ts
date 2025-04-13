@@ -63,6 +63,7 @@ export interface UpdateProfileData {
   phoneNumber?: string;
   skills?: string[];
   location?: {
+    type: 'Point';
     coordinates: [number, number]; // [longitude, latitude]
     address: string;
   };
@@ -246,7 +247,8 @@ export interface TransactionFormData {
 }
 
 export interface TransactionFilter {
-  status?: TransactionStatus;
+  status?: TransactionStatus | string;
+  statuses?: TransactionStatus[];
   role?: 'initiator' | 'recipient' | 'both';
   dateFrom?: string;
   dateTo?: string;
@@ -306,17 +308,62 @@ export interface ThemeColors {
     dark: string;
     darker: string;
     card: string;
+    elevated: string;
+    input: string;
   };
   text: {
     primary: string;
     secondary: string;
     muted: string;
+    inverse: string;
   };
   border: string;
+  divider: string;
   success: string;
   warning: string;
   error: string;
   info: string;
+  transaction: {
+    proposed: string;
+    accepted: string;
+    completed: string;
+    rejected: string;
+    cancelled: string;
+    disputed: string;
+    resolved: string;
+  };
+  shadows: {
+    small: {
+      shadowColor: string;
+      shadowOffset: {
+        width: number;
+        height: number;
+      };
+      shadowOpacity: number;
+      shadowRadius: number;
+      elevation: number;
+    };
+    medium: {
+      shadowColor: string;
+      shadowOffset: {
+        width: number;
+        height: number;
+      };
+      shadowOpacity: number;
+      shadowRadius: number;
+      elevation: number;
+    };
+    large: {
+      shadowColor: string;
+      shadowOffset: {
+        width: number;
+        height: number;
+      };
+      shadowOpacity: number;
+      shadowRadius: number;
+      elevation: number;
+    };
+  };
   transparent: string;
   mode: 'light' | 'dark';
 }

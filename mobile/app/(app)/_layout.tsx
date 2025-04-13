@@ -2,9 +2,9 @@
 
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SPACING } from '../../constants/Theme';
+import Icon from '../../components/ui/Icon';
 
 export default function AppLayout() {
   const { colors } = useTheme();
@@ -40,7 +40,7 @@ export default function AppLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="home" size={size} color={color} />
+            <Icon name="home" size={size} color={color} />
           ),
         }}
       />
@@ -50,7 +50,7 @@ export default function AppLayout() {
         options={{
           title: 'Marketplace',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="store" size={size} color={color} />
+            <Icon name="store" size={size} color={color} />
           ),
         }}
       />
@@ -60,7 +60,7 @@ export default function AppLayout() {
         options={{
           title: 'Messages',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="comments" size={size} color={color} />
+            <Icon name="comments" size={size} color={color} />
           ),
         }}
       />
@@ -70,7 +70,7 @@ export default function AppLayout() {
         options={{
           title: 'Transactions',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="exchange-alt" size={size} color={color} />
+            <Icon name="exchange-alt" size={size} color={color} />
           ),
         }}
       />
@@ -80,7 +80,7 @@ export default function AppLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="user" size={size} color={color} />
+            <Icon name="user" size={size} color={color} />
           ),
         }}
       />

@@ -13,7 +13,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
@@ -223,14 +223,27 @@ export default function ConversationScreen() {
   const renderMessage = ({ item }: { item: Message }) => {
     // Handle different sender formats
     let senderId = '';
+    let senderName = '';
+    let senderAvatar = '';
 
     if (item.sender) {
       if (typeof item.sender === 'string') {
         // If sender is just a string ID
         senderId = item.sender;
+        // Try to find user info from participants
+        const participant = conversation?.participants?.find(p => {
+          if (typeof p === 'string') return p === senderId;
+          return (p as User)._id === senderId;
+        });
+        if (participant && typeof participant !== 'string') {
+          senderName = (participant as User).fullName || '';
+          senderAvatar = (participant as User).avatar || '';
+        }
       } else if (typeof item.sender === 'object' && '_id' in item.sender) {
         // If sender is a User object
         senderId = (item.sender as User)._id;
+        senderName = (item.sender as User).fullName || '';
+        senderAvatar = (item.sender as User).avatar || '';
       }
     }
 
@@ -243,6 +256,21 @@ export default function ConversationScreen() {
           isUser ? styles.userMessageContainer : styles.otherMessageContainer
         ]}
       >
+        {!isUser && (
+          <View style={styles.avatarContainer}>
+            {senderAvatar ? (
+              <Image source={{ uri: senderAvatar }} style={styles.avatar} />
+            ) : (
+              <DefaultAvatar
+                name={senderName || 'User'}
+                userId={senderId}
+                size={36}
+                showBorder={true}
+              />
+            )}
+          </View>
+        )}
+
         <View
           style={[
             styles.messageBubble,
@@ -251,6 +279,11 @@ export default function ConversationScreen() {
               : [styles.otherMessageBubble, { backgroundColor: colors.background.card }]
           ]}
         >
+          {!isUser && senderName && (
+            <Text style={[styles.senderName, { color: colors.accent }]}>
+              {senderName}
+            </Text>
+          )}
           <Text
             style={[
               styles.messageText,
@@ -268,6 +301,21 @@ export default function ConversationScreen() {
             {item.createdAt ? formatTime(item.createdAt) : ''}
           </Text>
         </View>
+
+        {isUser && (
+          <View style={styles.avatarContainer}>
+            {currentUser?.avatar ? (
+              <Image source={{ uri: currentUser.avatar }} style={styles.avatar} />
+            ) : (
+              <DefaultAvatar
+                name={currentUser?.fullName || 'You'}
+                userId={currentUser?._id || ''}
+                size={36}
+                showBorder={true}
+              />
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -320,7 +368,7 @@ export default function ConversationScreen() {
           {sending ? (
             <ActivityIndicator size="small" color="#000" />
           ) : (
-            <FontAwesome5 name="paper-plane" size={16} color="#000" />
+            <Icon name="paper-plane" size={16} color="#000" />
           )}
         </TouchableOpacity>
       </View>

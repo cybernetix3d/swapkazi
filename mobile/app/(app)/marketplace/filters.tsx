@@ -10,7 +10,7 @@ import {
   Platform
 } from 'react-native';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { ListingCategory } from '../../../types';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
@@ -42,10 +42,10 @@ const exchangeTypes = ['All', 'Talent', 'Direct Swap', 'Both'];
 const listingTypes = ['All', 'Offer', 'Request'];
 const conditions = ['All', 'New', 'Like New', 'Good', 'Fair', 'Poor'];
 const sortOptions = [
-  { id: 'newest', label: 'Newest First', icon: 'clock' },
-  { id: 'price_low', label: 'Price: Low to High', icon: 'sort-amount-down' },
-  { id: 'price_high', label: 'Price: High to Low', icon: 'sort-amount-up' },
-  { id: 'distance', label: 'Distance: Nearest First', icon: 'map-marker-alt' },
+  { id: 'newest', label: 'Newest First', icon: 'time' },
+  { id: 'price_low', label: 'Price: Low to High', icon: 'arrow-down' },
+  { id: 'price_high', label: 'Price: High to Low', icon: 'arrow-up' },
+  { id: 'distance', label: 'Distance: Nearest First', icon: 'location' },
 ];
 
 export default function FiltersScreen() {
@@ -65,7 +65,8 @@ export default function FiltersScreen() {
 
   // Initialize filters from URL params
   useEffect(() => {
-    console.log('Filters page received params:', params);
+    // Only log once when component mounts or when params actually change
+    const paramsString = JSON.stringify(params);
 
     // Handle categories from marketplace page
     if (params.categories) {
@@ -78,7 +79,6 @@ export default function FiltersScreen() {
             categories.includes(cat as ListingCategory)
           ) as ListingCategory[];
 
-          console.log('Setting categories from params:', validCategories);
           setSelectedCategories(validCategories);
         }
       } catch (e) {
@@ -87,11 +87,9 @@ export default function FiltersScreen() {
     } else if (params.category) {
       // For backward compatibility, also support single category
       if (categories.includes(params.category as ListingCategory)) {
-        console.log('Setting single category from params:', params.category);
         setSelectedCategories([params.category as ListingCategory]);
       } else if (params.category === '') {
         // Empty string means clear the categories
-        console.log('Clearing categories based on empty param');
         setSelectedCategories([]);
       }
     }
@@ -144,8 +142,6 @@ export default function FiltersScreen() {
       sortBy,
     };
 
-    console.log('Applying filters:', queryParams);
-
     // Navigate back to marketplace with filters
     router.push({
       pathname: '/(app)/marketplace',
@@ -177,7 +173,7 @@ export default function FiltersScreen() {
           headerShadowVisible: false,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 10 }}>
-              <FontAwesome5 name="arrow-left" size={20} color={colors.text.primary} />
+              <Icon name="arrow-back" size={20} color={colors.text.primary} />
             </TouchableOpacity>
           ),
         }}
@@ -196,7 +192,7 @@ export default function FiltersScreen() {
                 onPress={() => setSelectedCategories([])}
               >
                 <Text style={[styles.clearButtonText, { color: colors.primary }]}>Clear</Text>
-                <FontAwesome5 name="times" size={12} color={colors.primary} style={{ marginLeft: 4 }} />
+                <Icon name="close" size={12} color={colors.primary} style={{ marginLeft: 4 }} />
               </TouchableOpacity>
             )}
           </View>
@@ -233,7 +229,7 @@ export default function FiltersScreen() {
                 }}
                 activeOpacity={0.4} // Make it more responsive
               >
-                <FontAwesome5
+                <Icon
                   name={categoryIcons[cat as ListingCategory]}
                   size={16}
                   color={selectedCategories.includes(cat as ListingCategory) ? '#000' : colors.text.secondary}
@@ -259,42 +255,140 @@ export default function FiltersScreen() {
             <TextInput
               style={[styles.priceInput, { backgroundColor: colors.background.card, color: colors.text.primary }]}
               value={priceRange[0].toString()}
-              onChangeText={(text) => setPriceRange([parseInt(text) || 0, priceRange[1]])}
-              keyboardType="number-pad"
+              onChangeText={(text) => {
+                const value = parseInt(text.replace(/[^0-9]/g, ''));
+                if (!isNaN(value)) {
+                  // Ensure min doesn't exceed max - 50
+                  setPriceRange([Math.min(value, priceRange[1] - 50), priceRange[1]]);
+                } else if (text === '') {
+                  setPriceRange([0, priceRange[1]]);
+                }
+              }}
+              keyboardType="numeric"
               placeholder="Min"
               placeholderTextColor={colors.text.muted}
+              maxLength={4}
             />
             <Text style={[styles.priceSeparator, { color: colors.text.muted }]}>to</Text>
             <TextInput
               style={[styles.priceInput, { backgroundColor: colors.background.card, color: colors.text.primary }]}
               value={priceRange[1].toString()}
-              onChangeText={(text) => setPriceRange([priceRange[0], parseInt(text) || 0])}
-              keyboardType="number-pad"
+              onChangeText={(text) => {
+                const value = parseInt(text.replace(/[^0-9]/g, ''));
+                if (!isNaN(value)) {
+                  // Ensure max doesn't go below min + 50
+                  setPriceRange([priceRange[0], Math.max(value, priceRange[0] + 50)]);
+                } else if (text === '') {
+                  setPriceRange([priceRange[0], 1000]);
+                }
+              }}
+              keyboardType="numeric"
               placeholder="Max"
               placeholderTextColor={colors.text.muted}
+              maxLength={4}
             />
           </View>
-          <View style={styles.sliderControls}>
-            <TouchableOpacity
-              style={[styles.sliderButton, { backgroundColor: colors.background.card }]}
-              onPress={() => setPriceRange([priceRange[0], Math.max(0, priceRange[1] - 50)])}
+          <View style={styles.sliderTrackContainer}>
+            <View
+              style={[styles.sliderTrack, { backgroundColor: colors.background.darker }]}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={(e) => {
+                const { locationX } = e.nativeEvent;
+                const width = e.currentTarget.offsetWidth || 300; // Default fallback width
+                const percentage = Math.min(Math.max(locationX / width, 0), 1);
+                const value = Math.round(percentage * 1000);
+
+                // Determine which thumb to move (closest to touch point)
+                const minDist = Math.abs(value - priceRange[0]);
+                const maxDist = Math.abs(value - priceRange[1]);
+
+                if (minDist <= maxDist) {
+                  // Move min thumb, but don't exceed max value
+                  setPriceRange([Math.min(value, priceRange[1] - 50), priceRange[1]]);
+                } else {
+                  // Move max thumb, but don't go below min value
+                  setPriceRange([priceRange[0], Math.max(value, priceRange[0] + 50)]);
+                }
+              }}
+              onResponderMove={(e) => {
+                const { locationX } = e.nativeEvent;
+                const width = e.currentTarget.offsetWidth || 300; // Default fallback width
+                const percentage = Math.min(Math.max(locationX / width, 0), 1);
+                const value = Math.round(percentage * 1000);
+
+                // Use the same logic as in onTouchStart
+                const minDist = Math.abs(value - priceRange[0]);
+                const maxDist = Math.abs(value - priceRange[1]);
+
+                if (minDist <= maxDist) {
+                  setPriceRange([Math.min(value, priceRange[1] - 50), priceRange[1]]);
+                } else {
+                  setPriceRange([priceRange[0], Math.max(value, priceRange[0] + 50)]);
+                }
+              }}
             >
-              <Text style={[styles.sliderButtonText, { color: colors.text.primary }]}>-</Text>
-            </TouchableOpacity>
-            <View style={[styles.sliderTrack, { backgroundColor: colors.background.card }]}>
+              {/* Track background */}
+              <View style={styles.sliderTrack} />
+
+              {/* Filled area between thumbs */}
               <View
-                style={[styles.sliderFill, {
+                style={[styles.sliderRangeFill, {
                   backgroundColor: colors.primary,
-                  width: `${(priceRange[1] / 1000) * 100}%`
+                  left: `${(priceRange[0] / 1000) * 100}%`,
+                  width: `${((priceRange[1] - priceRange[0]) / 1000) * 100}%`
                 }]}
               />
+
+              {/* Min thumb */}
+              <View
+                style={[styles.sliderThumb, {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.background.light,
+                  left: `${(priceRange[0] / 1000) * 100}%`,
+                  transform: [{ translateX: -12 }]
+                }]}
+              />
+
+              {/* Max thumb */}
+              <View
+                style={[styles.sliderThumb, {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.background.light,
+                  left: `${(priceRange[1] / 1000) * 100}%`,
+                  transform: [{ translateX: -12 }]
+                }]}
+              />
+
+              {/* Tick marks */}
+              <View style={styles.tickContainer}>
+                {[0, 250, 500, 750, 1000].map(tick => (
+                  <View
+                    key={tick}
+                    style={[styles.tick, {
+                      left: `${(tick / 1000) * 100}%`,
+                      backgroundColor: tick >= priceRange[0] && tick <= priceRange[1] ? colors.primary : colors.text.muted
+                    }]}
+                  />
+                ))}
+              </View>
+
+              {/* Labels */}
+              <View style={styles.labelContainer}>
+                {[0, 250, 500, 750, 1000].map(tick => (
+                  <Text
+                    key={tick}
+                    style={[styles.tickLabel, {
+                      left: `${(tick / 1000) * 100}%`,
+                      color: tick >= priceRange[0] && tick <= priceRange[1] ? colors.primary : colors.text.muted,
+                      transform: [{ translateX: tick === 0 ? 0 : tick === 1000 ? -20 : -10 }]
+                    }]}
+                  >
+                    {tick}
+                  </Text>
+                ))}
+              </View>
             </View>
-            <TouchableOpacity
-              style={[styles.sliderButton, { backgroundColor: colors.background.card }]}
-              onPress={() => setPriceRange([priceRange[0], Math.min(1000, priceRange[1] + 50)])}
-            >
-              <Text style={[styles.sliderButtonText, { color: colors.text.primary }]}>+</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -392,30 +486,102 @@ export default function FiltersScreen() {
           </View>
           {useLocation && (
             <>
-              <Text style={[styles.distanceValue, { color: colors.text.secondary }]}>
-                Within {distance} km
-              </Text>
-              <View style={styles.sliderControls}>
-                <TouchableOpacity
-                  style={[styles.sliderButton, { backgroundColor: colors.background.card }]}
-                  onPress={() => setDistance(Math.max(1, distance - 5))}
+              <View style={styles.sliderLabelContainer}>
+                <Text style={[styles.distanceValue, { color: colors.text.secondary }]}>
+                  Within
+                </Text>
+                <View style={[styles.inputContainer, { backgroundColor: colors.background.card, borderColor: colors.border }]}>
+                  <TextInput
+                    style={[styles.valueInput, { color: colors.text.primary }]}
+                    value={distance.toString()}
+                    onChangeText={(text) => {
+                      const value = parseInt(text.replace(/[^0-9]/g, ''));
+                      if (!isNaN(value)) {
+                        setDistance(Math.min(100, Math.max(1, value)));
+                      } else if (text === '') {
+                        setDistance(1);
+                      }
+                    }}
+                    keyboardType="numeric"
+                    maxLength={3}
+                  />
+                </View>
+                <Text style={[styles.distanceValue, { color: colors.text.secondary }]}>km</Text>
+              </View>
+
+              <View style={styles.sliderTrackContainer}>
+                <View
+                  style={[styles.sliderTrack, { backgroundColor: colors.background.darker }]}
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={(e) => {
+                    const { locationX } = e.nativeEvent;
+                    // Get the width from the layout instead of measure
+                    const width = e.currentTarget.offsetWidth || 300; // Default fallback width
+                    const percentage = Math.min(Math.max(locationX / width, 0), 1);
+                    const newDistance = Math.round(percentage * 100);
+                    setDistance(Math.max(1, newDistance));
+                  }}
+                  onResponderMove={(e) => {
+                    const { locationX } = e.nativeEvent;
+                    // Get the width from the layout instead of measure
+                    const width = e.currentTarget.offsetWidth || 300; // Default fallback width
+                    const percentage = Math.min(Math.max(locationX / width, 0), 1);
+                    const newDistance = Math.round(percentage * 100);
+                    setDistance(Math.max(1, newDistance));
+                  }}
                 >
-                  <Text style={[styles.sliderButtonText, { color: colors.text.primary }]}>-</Text>
-                </TouchableOpacity>
-                <View style={[styles.sliderTrack, { backgroundColor: colors.background.card }]}>
                   <View
                     style={[styles.sliderFill, {
                       backgroundColor: colors.primary,
                       width: `${(distance / 100) * 100}%`
                     }]}
                   />
+
+                  <View
+                    style={[styles.sliderThumb, {
+                      backgroundColor: colors.primary,
+                      borderColor: colors.background.light,
+                      left: `${(distance / 100) * 100}%`,
+                      transform: [{ translateX: -12 }]
+                    }]}
+                  />
+
+                  {/* Tick marks */}
+                  <View style={styles.tickContainer}>
+                    {[0, 25, 50, 75, 100].map(tick => (
+                      <View
+                        key={tick}
+                        style={[styles.tick, {
+                          left: `${tick}%`,
+                          backgroundColor: tick <= distance ? colors.primary : colors.text.muted
+                        }]}
+                      />
+                    ))}
+                  </View>
+
+                  {/* Labels */}
+                  <View style={styles.labelContainer}>
+                    {[0, 25, 50, 75, 100].map(tick => (
+                      <Text
+                        key={tick}
+                        style={[styles.tickLabel, {
+                          left: `${tick}%`,
+                          color: tick <= distance ? colors.primary : colors.text.muted,
+                          transform: [{ translateX: tick === 0 ? 0 : tick === 100 ? -20 : -10 }]
+                        }]}
+                      >
+                        {tick}
+                      </Text>
+                    ))}
+                  </View>
                 </View>
-                <TouchableOpacity
-                  style={[styles.sliderButton, { backgroundColor: colors.background.card }]}
-                  onPress={() => setDistance(Math.min(100, distance + 5))}
-                >
-                  <Text style={[styles.sliderButtonText, { color: colors.text.primary }]}>+</Text>
-                </TouchableOpacity>
+              </View>
+
+              <View style={styles.sliderMarkers}>
+                <Text style={[styles.sliderMarkerText, { color: colors.text.muted }]}>1km</Text>
+                <Text style={[styles.sliderMarkerText, { color: colors.text.muted }]}>50km</Text>
+                <Text style={[styles.sliderMarkerText, { color: colors.text.muted }]}>100km</Text>
               </View>
             </>
           )}
@@ -434,7 +600,7 @@ export default function FiltersScreen() {
                 ]}
                 onPress={() => setSortBy(option.id)}
               >
-                <FontAwesome5
+                <Icon
                   name={option.icon}
                   size={16}
                   color={sortBy === option.id ? '#000' : colors.text.secondary}
@@ -548,35 +714,87 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.small,
     fontSize: FONT.sizes.medium,
   },
-  sliderControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  sliderTrackContainer: {
     width: '100%',
-    height: 40,
-  },
-  sliderButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sliderButtonText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    height: 60,
+    marginVertical: SPACING.medium,
+    paddingHorizontal: SPACING.small,
   },
   sliderTrack: {
-    height: 4,
-    borderRadius: 2,
-    width: '80%',
+    height: 6,
+    borderRadius: 3,
+    width: '100%',
     position: 'relative',
   },
   sliderFill: {
-    height: 4,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
     position: 'absolute',
     left: 0,
+  },
+  sliderRangeFill: {
+    height: 6,
+    borderRadius: 3,
+    position: 'absolute',
+  },
+  sliderThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    position: 'absolute',
+    top: -9,  // Center the thumb on the track
+    borderWidth: 2,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
+  tickContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: 10,
+    top: 10,
+    flexDirection: 'row',
+  },
+  tick: {
+    width: 2,
+    height: 10,
+    position: 'absolute',
+  },
+  labelContainer: {
+    position: 'absolute',
+    width: '100%',
+    top: 25,
+    flexDirection: 'row',
+  },
+  tickLabel: {
+    fontSize: FONT.sizes.xs,
+    position: 'absolute',
+  },
+  sliderLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.small,
+  },
+  sliderLabel: {
+    fontSize: FONT.sizes.medium,
+    marginHorizontal: SPACING.xs,
+  },
+  inputContainer: {
+    height: 40,
+    borderRadius: SIZES.borderRadius.medium,
+    paddingHorizontal: SPACING.small,
+    borderWidth: 1,
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  valueInput: {
+    fontSize: FONT.sizes.medium,
+    textAlign: 'center',
+    width: '100%',
+    height: '100%',
   },
   optionsContainer: {
     flexDirection: 'row',

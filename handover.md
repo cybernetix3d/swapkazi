@@ -200,19 +200,29 @@ mobile/
 ```javascript
 {
   _id: ObjectId,
+  initiator: ObjectId (ref: 'User'),
+  recipient: ObjectId (ref: 'User'),
   listing: ObjectId (ref: 'Listing'),
-  buyer: ObjectId (ref: 'User'),
-  seller: ObjectId (ref: 'User'),
-  status: String, // "Pending", "Accepted", "Rejected", "Completed", "Cancelled"
-  exchangeType: String, // "Talent", "Direct Swap", or "Both"
+  status: String, // "Proposed", "Accepted", "Rejected", "Completed", "Cancelled", "Disputed", "Resolved"
+  type: String, // "Talent", "Direct Swap", or "Combined"
   talentAmount: Number,
-  swapDescription: String,
+  items: [String], // For direct swap items
   messages: [{
-    user: ObjectId (ref: 'User'),
+    sender: ObjectId (ref: 'User'),
     content: String,
-    createdAt: Date
+    timestamp: Date
   }],
-  completedAt: Date,
+  meetupLocation: {
+    type: { type: String, default: 'Point' },
+    coordinates: [Number, Number], // [longitude, latitude]
+    address: String
+  },
+  meetupTime: Date,
+  statusHistory: [{
+    status: String,
+    timestamp: Date,
+    updatedBy: ObjectId (ref: 'User')
+  }],
   createdAt: Date,
   updatedAt: Date
 }
@@ -271,8 +281,10 @@ mobile/
 
 4. **Transaction System**
    - Create and manage transactions
-   - Different transaction statuses
-   - Transaction history
+   - Different transaction statuses (Proposed, Accepted, Rejected, Completed, Cancelled, Disputed, Resolved)
+   - Transaction history with detailed status tracking
+   - Talent currency transfers between users
+   - Listing status updates when transactions complete
 
 5. **User Interface**
    - Responsive design
@@ -321,11 +333,25 @@ The application implements comprehensive error handling:
    - More informative error messages
    - Enhanced empty states
 
+5. **Transaction System Improvements**
+   - Removed all mock data from transaction screens
+   - Enhanced transaction completion flow with confirmation dialogs
+   - Added balance verification before completing transactions
+   - Improved transaction history display with detailed status descriptions
+   - Added proper error handling for all transaction operations
+
+6. **Profile Viewing Implementation**
+   - Added profile/[id] route for viewing other users' profiles
+   - Implemented ability to message users directly from their profile
+   - Added proper error handling for profile data loading
+   - Enhanced UI for profile viewing
+
 ## Known Issues
 
-1. **Missing Routes**
-   - No route for "profile/[id]" exists, causing a warning
-   - Need to implement user profile viewing by ID
+1. **Route Improvements** ✅
+   - The "profile/[id]" route has been implemented
+   - Users can now view other users' profiles by ID
+   - Added ability to message users directly from their profile
 
 2. **Deprecated Style Props**
    - Some components use deprecated style properties
@@ -338,13 +364,17 @@ The application implements comprehensive error handling:
 
 ### High Priority
 
-1. **Create Missing Routes**
-   - Implement profile/[id] route for viewing other users' profiles
+1. **Route Improvements** ✅
+   - The profile/[id] route has been implemented
+   - Users can now view other users' profiles
+   - Added ability to message users directly from their profile
 
-2. **Complete Transaction System**
-   - Finalize transaction flow
-   - Implement talent balance updates
-   - Add transaction completion and rating
+2. **Transaction System Improvements** ✅
+   - Transaction flow has been finalized
+   - Talent balance updates implemented
+   - Transaction completion with confirmation dialogs added
+   - Enhanced transaction history with detailed status descriptions
+   - Improved error handling for all transaction operations
 
 3. **Enhance Search and Filtering**
    - Improve geospatial queries
@@ -447,9 +477,9 @@ The mobile app can be deployed to app stores:
 
 ## Conclusion
 
-SwapKazi is a comprehensive skills-based bartering platform with a solid foundation. The backend API is well-structured and the mobile app provides a good user experience. With the recent improvements to error handling and the removal of mock data, the application is now more robust and ready for further development.
+SwapKazi is a comprehensive skills-based bartering platform with a solid foundation. The backend API is well-structured and the mobile app provides a good user experience. With the recent improvements to error handling, the removal of mock data, the implementation of the transaction system, and the addition of profile viewing functionality, the application is now more robust and ready for further development.
 
-The next steps should focus on completing the transaction system, enhancing the search functionality, and adding the missing profile viewing route. With these improvements, SwapKazi will be ready for beta testing and eventual production deployment.
+The next steps should focus on enhancing the search functionality, improving UI/UX, and optimizing performance. With these improvements, SwapKazi will be ready for beta testing and eventual production deployment.
 
 ## Contact Information
 

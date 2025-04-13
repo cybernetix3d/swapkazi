@@ -18,19 +18,27 @@ export const getConversations = async (): Promise<ConversationListItem[]> => {
 
     console.log('Conversations response:', JSON.stringify(response.data));
 
+    // Get the current user ID to determine the other participant
+    const userResponse = await api.get<any>('/users/me');
+    const currentUserId = userResponse.data._id || userResponse.data.data?._id;
+    console.log('Current user ID:', currentUserId);
+
+    // Process the conversations data
+    let conversations: any[] = [];
+
     // Handle different response formats
     if (Array.isArray(response.data)) {
       // Direct array of conversations
       console.log('Server returned direct array of conversations');
-      return response.data;
+      conversations = response.data;
     } else if (response.data.data && Array.isArray(response.data.data)) {
       // Wrapped in data property
       console.log('Server returned wrapped conversations object');
-      return response.data.data;
+      conversations = response.data.data;
     } else if (response.data.conversations && Array.isArray(response.data.conversations)) {
       // Conversations property
       console.log('Server returned conversations in conversations property');
-      return response.data.conversations;
+      conversations = response.data.conversations;
     } else if (!response.data.success) {
       // Error response
       throw new Error(response.data.message || 'Failed to fetch conversations');
@@ -39,6 +47,68 @@ export const getConversations = async (): Promise<ConversationListItem[]> => {
       console.error('Unexpected response format:', response.data);
       return [];
     }
+
+    // Process each conversation to ensure otherParticipant is properly set
+    return conversations.map(conversation => {
+      // Create a properly formatted conversation item
+      const conversationItem: ConversationListItem = {
+        ...conversation,
+        otherParticipant: {
+          _id: '',
+          username: '',
+          email: '',
+          fullName: 'Unknown User',
+          skills: [],
+          talentBalance: 0,
+          location: {
+            type: 'Point',
+            coordinates: [0, 0],
+            address: ''
+          },
+          ratings: [],
+          averageRating: 0,
+          isActive: true,
+          createdAt: '',
+          updatedAt: ''
+        },
+        lastMessageContent: conversation.lastMessageContent || 'No messages yet',
+        lastMessageTime: conversation.lastMessageTime || conversation.updatedAt || conversation.createdAt
+      };
+
+      // Find the other participant
+      if (conversation.participants && Array.isArray(conversation.participants)) {
+        // If participants are full user objects
+        const otherParticipant = conversation.participants.find(p => {
+          if (typeof p === 'string') {
+            return p !== currentUserId;
+          } else if (p && typeof p === 'object' && p._id) {
+            return p._id !== currentUserId;
+          }
+          return false;
+        });
+
+        if (otherParticipant) {
+          if (typeof otherParticipant === 'string') {
+            // If it's just an ID, we need to create a placeholder user
+            conversationItem.otherParticipant = {
+              ...conversationItem.otherParticipant,
+              _id: otherParticipant,
+              fullName: `User ${otherParticipant.substring(0, 5)}...`
+            };
+          } else if (otherParticipant && typeof otherParticipant === 'object') {
+            // If it's a user object, use it directly
+            conversationItem.otherParticipant = otherParticipant as User;
+          }
+        }
+      }
+
+      // If there's already an otherParticipant property, use it
+      if (conversation.otherParticipant && typeof conversation.otherParticipant === 'object') {
+        conversationItem.otherParticipant = conversation.otherParticipant;
+      }
+
+      return conversationItem;
+    });
   } catch (error: any) {
     console.error('Error in getConversations:', error);
 

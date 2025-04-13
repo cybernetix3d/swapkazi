@@ -13,7 +13,7 @@ import {
 import ErrorMessage from '../../../components/ErrorMessage';
 import LoadingIndicator from '../../../components/LoadingIndicator';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { Listing, ListingCategory } from '../../../types';
@@ -283,7 +283,7 @@ export default function MarketplaceScreen() {
             returnKeyType="search"
           />
           <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-            <FontAwesome5 name="search" size={18} color={colors.text.primary} />
+            <Icon name="search" size={18} color={colors.text.primary} />
           </TouchableOpacity>
         </View>
 
@@ -308,7 +308,7 @@ export default function MarketplaceScreen() {
             });
           }}
         >
-          <FontAwesome5 name="sliders-h" size={18} color={colors.text.primary} />
+          <Icon name="options" size={18} color={colors.text.primary} />
           {Object.keys(activeFilters).length > 0 && (
             <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
               <Text style={styles.filterBadgeText}>{Object.keys(activeFilters).length}</Text>
@@ -336,7 +336,7 @@ export default function MarketplaceScreen() {
               }}
             >
               <Text style={[styles.clearCategoryText, { color: colors.primary }]}>Clear All</Text>
-              <FontAwesome5 name="times" size={12} color={colors.primary} style={{ marginLeft: 4 }} />
+              <Icon name="close" size={12} color={colors.primary} style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           )}
         </View>
@@ -358,9 +358,9 @@ export default function MarketplaceScreen() {
                     transform: [{ scale: 1.05 }] // Slightly larger
                   } :
                   {
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    backgroundColor: colors.background.input,
                     borderWidth: 1,
-                    borderColor: 'rgba(255, 255, 255, 0.3)'
+                    borderColor: colors.border
                   },
                 // Add a shadow for better visibility
                 { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 2, elevation: 3 }
@@ -368,7 +368,7 @@ export default function MarketplaceScreen() {
               onPress={() => handleCategorySelect(item)}
               activeOpacity={0.4} // Make it more responsive with lower opacity on press
             >
-              <FontAwesome5
+              <Icon
                 name={categoryIcons[item]}
                 size={16}
                 color={selectedCategories.includes(item) ? '#000' : colors.text.secondary}
@@ -393,7 +393,7 @@ export default function MarketplaceScreen() {
         style={[styles.createButton, { backgroundColor: colors.primary }]}
         onPress={() => router.push('/(app)/marketplace/create')}
       >
-        <FontAwesome5 name="plus" size={16} color="#000" />
+        <Icon name="plus" size={16} color="#000" />
         <Text style={styles.createButtonText}>Create Listing</Text>
       </TouchableOpacity>
 
@@ -421,7 +421,7 @@ export default function MarketplaceScreen() {
               />
             ) : (
               <View style={styles.emptyContainer}>
-                <FontAwesome5 name="store-alt-slash" size={48} color={colors.text.secondary} />
+                <Icon name="store-alt-slash" size={48} color={colors.text.secondary} />
                 <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
                   No listings found
                 </Text>
@@ -448,7 +448,7 @@ export default function MarketplaceScreen() {
                   style={[styles.refreshButton, { borderColor: colors.text.secondary }]}
                   onPress={() => fetchListings(true)}
                 >
-                  <FontAwesome5 name="sync" size={16} color={colors.text.secondary} style={styles.refreshIcon} />
+                  <Icon name="sync" size={16} color={colors.text.secondary} style={styles.refreshIcon} />
                   <Text style={[styles.refreshText, { color: colors.text.secondary }]}>
                     Refresh
                   </Text>

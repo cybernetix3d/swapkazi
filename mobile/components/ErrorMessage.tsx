@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from './ui/Icon';
 import { FONT, SPACING } from '../constants/Theme';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -14,7 +14,7 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({ message, onRetry }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background.card }]}>
-      <FontAwesome5 name="exclamation-circle" size={48} color={colors.error} />
+      <Icon name="exclamation-circle" size={48} color={colors.error} />
       <Text style={[styles.message, { color: colors.text.primary }]}>
         {message}
       </Text>

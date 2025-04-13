@@ -11,7 +11,6 @@ import {
   Alert
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
@@ -19,7 +18,6 @@ import { User, Listing, TransactionType } from '../../../types';
 import * as ListingService from '../../../services/listingService';
 import * as TransactionService from '../../../services/transaction';
 import * as UserService from '../../../services/userService';
-import config from '../../../config';
 
 export default function NewTransactionScreen() {
   const { listingId, recipientId } = useLocalSearchParams<{ listingId?: string; recipientId?: string }>();
@@ -99,64 +97,91 @@ export default function NewTransactionScreen() {
       return;
     }
 
+    // Validate talent amount for talent transactions
     if (listing?.exchangeType !== 'Direct Swap' && !talentAmount) {
       Alert.alert('Error', 'Please enter a talent amount');
       return;
     }
 
-    setSubmitting(true);
-
-    try {
-      // Use mock data if enabled in config
-      if (config.enableMockData) {
-        // For demo purposes, we'll just simulate API call success
-        setTimeout(() => {
-          // In a real app, this would create a transaction through the API
-          Alert.alert(
-            'Transaction Created',
-            'Your transaction has been created successfully!',
-            [
-              {
-                text: 'OK',
-                onPress: () => router.replace('/(app)/transactions/index')
-              }
-            ]
-          );
-        }, 1000);
-        return;
-      }
-
-      // Prepare transaction data
-      const transactionData = {
-        recipientId: recipient._id,
-        listingId: listing?._id,
-        type: listing?.exchangeType === 'Direct Swap' ? 'Direct Swap' : 'Talent',
-        talentAmount: talentAmount ? parseInt(talentAmount) : undefined,
-        message: message.trim() || undefined
-      };
-
-      console.log('Creating transaction with data:', transactionData);
-
-      // Call the API to create the transaction
-      const result = await TransactionService.createTransaction(transactionData);
-
-      console.log('Transaction created:', result);
-
-      console.log('Transaction created successfully, navigating to transaction details');
-
-      // First set submitting to false
-      setSubmitting(false);
-
-      // Then navigate to the transaction details screen
-      router.push({
-        pathname: `/(app)/transactions/${result._id}`,
-        params: { refresh: 'true' }
-      });
-    } catch (error) {
-      console.error('Error creating transaction:', error);
-      Alert.alert('Error', 'Failed to create transaction');
-      setSubmitting(false);
+    // Additional validation for talent amount
+    if (talentAmount && parseInt(talentAmount) <= 0) {
+      Alert.alert('Error', 'Talent amount must be greater than zero');
+      return;
     }
+
+    // For talent transactions, check if user has enough balance
+    if (talentAmount && user?.talentBalance !== undefined && parseInt(talentAmount) > user.talentBalance) {
+      Alert.alert(
+        'Insufficient Balance',
+        `You don't have enough talents. Your current balance is ${user.talentBalance}.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Confirm transaction creation
+    const transactionType = listing?.exchangeType === 'Direct Swap' ? 'Direct Swap' : 'Talent';
+    const confirmMessage = transactionType === 'Talent'
+      ? `You are about to create a transaction to send ${talentAmount} talents to ${recipient.fullName}. Continue?`
+      : `You are about to create a direct swap transaction with ${recipient.fullName}. Continue?`;
+
+    Alert.alert(
+      'Confirm Transaction',
+      confirmMessage,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Create Transaction',
+          onPress: async () => {
+            setSubmitting(true);
+
+            try {
+              // Prepare transaction data
+              const transactionData = {
+                recipientId: recipient._id,
+                listingId: listing?._id,
+                type: transactionType as TransactionType,
+                talentAmount: talentAmount ? parseInt(talentAmount) : undefined,
+                message: message.trim() || undefined
+              };
+
+              console.log('Creating transaction with data:', transactionData);
+
+              // Call the API to create the transaction
+              const result = await TransactionService.createTransaction(transactionData);
+
+              console.log('Transaction created:', result);
+
+              // Show success message
+              Alert.alert(
+                'Transaction Created',
+                'Your transaction has been created successfully!',
+                [
+                  {
+                    text: 'View Transaction',
+                    onPress: () => {
+                      // Navigate to the transaction details screen
+                      router.push({
+                        pathname: `/(app)/transactions/${result._id}`,
+                        params: { refresh: 'true' }
+                      });
+                    }
+                  }
+                ]
+              );
+            } catch (error: any) {
+              console.error('Error creating transaction:', error);
+              Alert.alert('Error', 'Failed to create transaction: ' + (error.message || 'Please try again.'));
+            } finally {
+              setSubmitting(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (loading) {

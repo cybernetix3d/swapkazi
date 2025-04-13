@@ -52,7 +52,18 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
   if (compact) {
     return (
       <TouchableOpacity
-        style={[styles.compactContainer, { backgroundColor: colors.background.card }]}
+        style={[
+          styles.compactContainer,
+          {
+            backgroundColor: colors.background.card,
+            borderColor: colors.border,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+            elevation: 1
+          }
+        ]}
         onPress={handlePress}
       >
         {mainImage ? (
@@ -92,7 +103,18 @@ const ListingCard: React.FC<ListingCardProps> = ({ listing, compact = false, onP
 
   return (
     <TouchableOpacity
-      style={[styles.container, { backgroundColor: colors.background.card }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background.card,
+          borderColor: colors.border,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+          elevation: 1
+        }
+      ]}
       onPress={handlePress}
       activeOpacity={0.9}
     >
@@ -179,6 +201,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: SPACING.medium,
     width: '100%',
+    borderWidth: 1,
   },
   image: {
     width: '100%',
@@ -259,6 +282,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.small,
     width: '100%',
     height: 100,
+    borderWidth: 1,
   },
   compactImage: {
     width: 100,

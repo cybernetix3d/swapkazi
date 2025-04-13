@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { Listing, User } from '../../../types';
 import * as ListingService from '../../../services/listingService';
 import * as UserService from '../../../services/userService';
+import DefaultAvatar from '../../../components/DefaultAvatar';
 
 // Helper function to get image URL from listing
 const getListingImageUrl = (listing: Listing): string => {
@@ -128,30 +129,63 @@ export default function HomeScreen() {
       {/* Quick Actions */}
       <View style={styles.quickActions}>
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: colors.background.card }]}
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor: colors.background.card,
+              borderColor: colors.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+              elevation: 1
+            }
+          ]}
           onPress={() => router.push('/(app)/marketplace/create')}
         >
-          <FontAwesome5 name="plus-circle" size={24} color={colors.primary} />
+          <Icon name="plus-circle" size={24} color={colors.primary} />
           <Text style={[styles.actionText, { color: colors.text.primary }]}>
             Create Listing
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: colors.background.card }]}
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor: colors.background.card,
+              borderColor: colors.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+              elevation: 1
+            }
+          ]}
           onPress={() => router.push('/(app)/marketplace/filters')}
         >
-          <FontAwesome5 name="filter" size={24} color={colors.secondary} />
+          <Icon name="filter" size={24} color={colors.secondary} />
           <Text style={[styles.actionText, { color: colors.text.primary }]}>
             Filter Items
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: colors.background.card }]}
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor: colors.background.card,
+              borderColor: colors.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+              elevation: 1
+            }
+          ]}
           onPress={() => router.push('/(app)/marketplace')}
         >
-          <FontAwesome5 name="store" size={24} color={colors.accent} />
+          <Icon name="store" size={24} color={colors.accent} />
           <Text style={[styles.actionText, { color: colors.text.primary }]}>
             Marketplace
           </Text>
@@ -175,7 +209,18 @@ export default function HomeScreen() {
           {featuredListings.map((item) => (
             <TouchableOpacity
               key={item._id}
-              style={[styles.listingCard, { backgroundColor: colors.background.card }]}
+              style={[
+                styles.listingCard,
+                {
+                  backgroundColor: colors.background.card,
+                  borderColor: colors.border,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 2,
+                  elevation: 1
+                }
+              ]}
               onPress={() => router.push(`/(app)/marketplace/${item._id}`)}
             >
               <Image source={{ uri: getListingImageUrl(item) }} style={styles.listingImage} />
@@ -191,7 +236,23 @@ export default function HomeScreen() {
                     ✦ {item.talentPrice}
                   </Text>
                   <View style={styles.userInfo}>
-                    <Image source={{ uri: typeof item.user === 'string' ? 'https://via.placeholder.com/50' : (item.user.avatar || 'https://via.placeholder.com/50') }} style={styles.userAvatar} />
+                    {typeof item.user === 'string' ? (
+                      <DefaultAvatar
+                        name="User"
+                        userId={item.user}
+                        size={24}
+                        style={styles.userAvatar}
+                      />
+                    ) : item.user.avatar ? (
+                      <Image source={{ uri: item.user.avatar }} style={styles.userAvatar} />
+                    ) : (
+                      <DefaultAvatar
+                        name={item.user.fullName || item.user.username || 'User'}
+                        userId={item.user._id}
+                        size={24}
+                        style={styles.userAvatar}
+                      />
+                    )}
                     <Text style={[styles.userName, { color: colors.text.secondary }]}>
                       {typeof item.user === 'string' ? 'User' : (item.user.fullName || item.user.username)}
                     </Text>
@@ -220,10 +281,30 @@ export default function HomeScreen() {
           {nearbyUsers.map((user) => (
             <TouchableOpacity
               key={user._id}
-              style={[styles.userCard, { backgroundColor: colors.background.card }]}
+              style={[
+                styles.userCard,
+                {
+                  backgroundColor: colors.background.card,
+                  borderColor: colors.border,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 2,
+                  elevation: 1
+                }
+              ]}
               onPress={() => router.push(`/(app)/profile/${user._id}`)}
             >
-              <Image source={{ uri: user.avatar }} style={styles.userCardAvatar} />
+              {user.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.userCardAvatar} />
+              ) : (
+                <DefaultAvatar
+                  name={user.fullName || user.username || 'User'}
+                  userId={user._id}
+                  size={50}
+                  style={styles.userCardAvatar}
+                />
+              )}
               <Text style={[styles.userCardName, { color: colors.text.primary }]}>
                 {user.fullName || user.username}
               </Text>
@@ -231,7 +312,7 @@ export default function HomeScreen() {
                 {user.skills.join(', ')}
               </Text>
               <View style={[styles.distance, { backgroundColor: colors.background.dark }]}>
-                <FontAwesome5 name="map-marker-alt" size={12} color={colors.primary} />
+                <Icon name="map-marker-alt" size={12} color={colors.primary} />
                 <Text style={[styles.distanceText, { color: colors.text.secondary }]}>
                   Nearby
                 </Text>
@@ -243,7 +324,7 @@ export default function HomeScreen() {
 
       {/* Community Tips */}
       <View style={[styles.tipCard, { backgroundColor: colors.accent }]}>
-        <FontAwesome5 name="lightbulb" size={24} color="#fff" style={styles.tipIcon} />
+        <Icon name="lightbulb" size={24} color="#fff" style={styles.tipIcon} />
         <View style={styles.tipContent}>
           <Text style={styles.tipTitle}>Barter Tip</Text>
           <Text style={styles.tipText}>
@@ -302,6 +383,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.borderRadius.medium,
     padding: SPACING.medium,
     alignItems: 'center',
+    borderWidth: 1,
   },
   actionText: {
     marginTop: SPACING.small,
@@ -329,6 +411,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.borderRadius.medium,
     marginRight: SPACING.medium,
     overflow: 'hidden',
+    borderWidth: 1,
   },
   listingImage: {
     width: '100%',
@@ -374,6 +457,7 @@ const styles = StyleSheet.create({
     padding: SPACING.medium,
     alignItems: 'center',
     marginRight: SPACING.medium,
+    borderWidth: 1,
   },
   userCardAvatar: {
     width: 70,

@@ -7,36 +7,40 @@ interface DefaultAvatarProps {
   userId: string;
   size?: number;
   style?: any;
+  showBorder?: boolean;
 }
 
 /**
  * Default avatar component that displays user initials on a colored background
  */
-const DefaultAvatar: React.FC<DefaultAvatarProps> = ({ 
-  name, 
-  userId, 
+const DefaultAvatar: React.FC<DefaultAvatarProps> = ({
+  name,
+  userId,
   size = 100,
-  style
+  style,
+  showBorder = true
 }) => {
   const initials = getInitials(name || '?');
   const backgroundColor = getAvatarColor(userId || name || '');
-  
+
   return (
-    <View 
+    <View
       style={[
-        styles.container, 
-        { 
-          width: size, 
-          height: size, 
+        styles.container,
+        {
+          width: size,
+          height: size,
           borderRadius: size / 2,
-          backgroundColor 
+          backgroundColor,
+          borderWidth: showBorder ? 1 : 0,
+          borderColor: 'rgba(255, 255, 255, 0.3)'
         },
         style
       ]}
     >
-      <Text 
+      <Text
         style={[
-          styles.text, 
+          styles.text,
           { fontSize: size * 0.4 }
         ]}
       >

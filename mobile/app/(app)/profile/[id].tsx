@@ -11,7 +11,7 @@ import LoadingIndicator from '../../../components/LoadingIndicator';
 import ErrorMessage from '../../../components/ErrorMessage';
 import { ThemedText } from '../../../components/ThemedText';
 import { ThemedView } from '../../../components/ThemedView';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import DefaultAvatar from '../../../components/DefaultAvatar';
 
 
@@ -71,7 +71,7 @@ export default function UserProfileScreen() {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        <FontAwesome5
+        <Icon
           key={i}
           name="star"
           solid={i <= rating}
@@ -151,73 +151,21 @@ export default function UserProfileScreen() {
     setContactLoading(true);
 
     try {
-      // Use user._id instead of id from params to ensure we have the full ID
-      const recipientId = user._id;
-      console.log('Creating conversation with user:', recipientId);
-      console.log('Current user:', JSON.stringify(currentUser));
-      console.log('Target user:', JSON.stringify(user));
-      console.log('Auth token exists:', !!token);
-
-      if (!recipientId || typeof recipientId !== 'string' || recipientId.trim() === '') {
-        throw new Error(`Invalid recipient ID: ${recipientId}`);
-      }
-
-      // Create or get conversation with this user
-      console.log('Calling createOrGetConversation with recipientId:', recipientId);
-      const conversation = await MessageService.createOrGetConversation(recipientId);
-      console.log('Conversation created/retrieved:', conversation);
-
-      if (!conversation || !conversation._id) {
-        throw new Error('Invalid conversation data received');
-      }
-
-      // Navigate to the conversation
-      console.log('Navigating to conversation:', conversation._id);
-
-      // Simple navigation approach
-      router.push(`/(app)/messages/${conversation._id}`);
+      // Navigate directly to the new message screen with the user ID
+      router.push({
+        pathname: '/(app)/messages/new',
+        params: {
+          userId: user._id
+        }
+      });
     } catch (err: any) {
-      console.error('Failed to create conversation:', err);
-
-      // Check for authentication errors
-      if (err.response && err.response.status === 401) {
-        Alert.alert(
-          'Authentication Error',
-          'Your session has expired. Please log in again.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Login', onPress: () => router.push('/(auth)/login') }
-          ]
-        );
-        return;
-      }
-
-      // Show more detailed error information
-      let errorMessage = 'Unknown error';
-
-      if (err.response && err.response.data) {
-        console.error('Response data:', JSON.stringify(err.response.data));
-        errorMessage = err.response.data.message || 'Server error';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      console.error('Error details:', errorMessage);
+      console.error('Failed to navigate to messages screen:', err);
 
       // Show a user-friendly error message
       Alert.alert(
         'Error',
-        `Could not start conversation: ${errorMessage}`,
-        [
-          { text: 'OK' },
-          {
-            text: 'Try Again',
-            onPress: () => {
-              // Wait a moment before trying again
-              setTimeout(() => handleContactUser(), 1000);
-            }
-          }
-        ]
+        'Could not open messaging screen. Please try again.',
+        [{ text: 'OK' }]
       );
     } finally {
       setContactLoading(false);
@@ -261,7 +209,6 @@ export default function UserProfileScreen() {
               name={user.fullName || ''}
               userId={user._id}
               size={100}
-              style={styles.avatar}
             />
           )}
           <ThemedText style={styles.fullName}>{user.fullName}</ThemedText>
@@ -286,7 +233,7 @@ export default function UserProfileScreen() {
                 <ActivityIndicator size="small" color="#000" />
               ) : (
                 <>
-                  <FontAwesome5 name="comment" size={16} color="#000" style={styles.contactButtonIcon} />
+                  <Icon name="comment" size={16} color="#000" style={styles.contactButtonIcon} />
                   <ThemedText style={styles.contactButtonText}>Contact</ThemedText>
                 </>
               )}
@@ -337,7 +284,7 @@ export default function UserProfileScreen() {
                     />
                   ) : (
                     <View style={[styles.listingImagePlaceholder, { backgroundColor: colors.background.dark }]}>
-                      <FontAwesome5 name="image" size={24} color={colors.text.muted} />
+                      <Icon name="image" size={24} color={colors.text.muted} />
                     </View>
                   )}
                   <View style={styles.listingDetails}>

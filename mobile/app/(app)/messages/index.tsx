@@ -13,11 +13,12 @@ import {
 import ErrorMessage from '../../../components/ErrorMessage';
 import LoadingIndicator from '../../../components/LoadingIndicator';
 import { useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { ConversationListItem } from '../../../types';
+import DefaultAvatar from '../../../components/DefaultAvatar';
 
 // Mock data for development - no longer used
 /* const mockConversations: ConversationListItem[] = [
@@ -183,22 +184,16 @@ export default function MessagesScreen() {
           >
             <View style={styles.avatarContainer}>
               {item.otherParticipant && item.otherParticipant.avatar ? (
-                <View style={styles.avatar}>
-                  {/* In a real app, this would be an Image component */}
-                  <Text style={{ fontSize: 20, color: '#fff' }}>
-                    {item.otherParticipant.fullName?.charAt(0) || '?'}
-                  </Text>
-                </View>
+                <Image
+                  source={{ uri: item.otherParticipant.avatar }}
+                  style={styles.avatar}
+                />
               ) : (
-                <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                  <Text style={{ fontSize: 20, color: '#000' }}>
-                    {item.otherParticipant?.fullName?.charAt(0) ||
-                     (item.participants && item.participants[0] !== currentUser?._id ?
-                      item.participants[0].charAt(0) :
-                      item.participants && item.participants[1] ?
-                      item.participants[1].charAt(0) : '?')}
-                  </Text>
-                </View>
+                <DefaultAvatar
+                  name={item.otherParticipant?.fullName || 'User'}
+                  userId={item.otherParticipant?._id || ''}
+                  size={50}
+                />
               )}
               {item.unreadCount && item.unreadCount > 0 && (
                 <View style={[styles.badge, { backgroundColor: colors.primary }]}>
@@ -210,11 +205,7 @@ export default function MessagesScreen() {
             <View style={styles.contentContainer}>
               <View style={styles.headerRow}>
                 <Text style={[styles.name, { color: colors.text.primary }]}>
-                  {item.otherParticipant?.fullName ||
-                   (item.participants && item.participants[0] !== currentUser?._id ?
-                    `User ${item.participants[0]}` :
-                    item.participants && item.participants[1] ?
-                    `User ${item.participants[1]}` : 'Unknown User')}
+                  {item.otherParticipant?.fullName || 'Unknown User'}
                 </Text>
                 <Text style={[styles.time, { color: colors.text.secondary }]}>
                   {item.lastMessageTime ? formatDate(item.lastMessageTime) :
@@ -247,7 +238,7 @@ export default function MessagesScreen() {
         }
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
-            <FontAwesome5 name="comments" size={48} color={colors.text.secondary} />
+            <Icon name="comments" size={48} color={colors.text.secondary} />
             <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
               No conversations yet
             </Text>
@@ -258,7 +249,7 @@ export default function MessagesScreen() {
               style={[styles.refreshButton, { borderColor: colors.text.secondary }]}
               onPress={fetchConversations}
             >
-              <FontAwesome5 name="sync" size={16} color={colors.text.secondary} style={styles.refreshIcon} />
+              <Icon name="refresh" size={16} color={colors.text.secondary} style={styles.refreshIcon} />
               <Text style={[styles.refreshText, { color: colors.text.secondary }]}>
                 Refresh
               </Text>
@@ -272,7 +263,7 @@ export default function MessagesScreen() {
         style={[styles.newMessageButton, { backgroundColor: colors.primary }]}
         onPress={() => router.push('/(app)/messages/new')}
       >
-        <FontAwesome5 name="plus" size={20} color="#000" />
+        <Icon name="add" size={20} color="#000" />
       </TouchableOpacity>
     </View>
   );
@@ -287,6 +278,10 @@ const styles = StyleSheet.create({
     padding: SPACING.medium,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    marginHorizontal: SPACING.small,
+    marginVertical: SPACING.xs,
+    borderRadius: SIZES.borderRadius.medium,
   },
   avatarContainer: {
     position: 'relative',

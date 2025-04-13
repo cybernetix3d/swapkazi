@@ -20,10 +20,10 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useLocation } from '../../../hooks/useLocation';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
-import { 
-  Listing, 
-  ListingFormData, 
-  ListingCategory, 
+import {
+  Listing,
+  ListingFormData,
+  ListingCategory,
   ListingType,
   ExchangeType,
   ItemCondition,
@@ -33,7 +33,7 @@ import * as ListingService from '../../../services/listingService';
 
 // Available categories
 const categories: ListingCategory[] = [
-  'Goods', 'Services', 'Food', 'Crafts', 
+  'Goods', 'Services', 'Food', 'Crafts',
   'Electronics', 'Clothing', 'Furniture', 'Books',
   'Tools', 'Education', 'Transportation', 'Other'
 ];
@@ -48,7 +48,7 @@ export default function CreateListingScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { location, getLocation } = useLocation();
-  
+
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [formData, setFormData] = useState<ListingFormData>({
     title: '',
@@ -64,11 +64,11 @@ export default function CreateListingScreen() {
       address: location.address || 'Location not available'
     } : undefined
   });
-  
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [useMyLocation, setUseMyLocation] = useState<boolean>(true);
   const [showCondition, setShowCondition] = useState<boolean>(true);
-  
+
   // Request location when component mounts
   useEffect(() => {
     const fetchLocation = async () => {
@@ -83,19 +83,19 @@ export default function CreateListingScreen() {
         }));
       }
     };
-    
+
     if (useMyLocation) {
       fetchLocation();
     }
   }, [useMyLocation]);
-  
+
   // Update form data
   const handleInputChange = (name: keyof ListingFormData, value: any) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error for this field if it exists
     if (errors[name]) {
       setErrors(prev => {
@@ -105,11 +105,11 @@ export default function CreateListingScreen() {
       });
     }
   };
-  
+
   // Handle toggle between Offer and Request
   const handleListingTypeToggle = (type: ListingType) => {
     handleInputChange('listingType', type);
-    
+
     // For Requests, default to "Not Applicable" condition
     if (type === 'Request') {
       handleInputChange('condition', 'Not Applicable');
@@ -118,34 +118,34 @@ export default function CreateListingScreen() {
       setShowCondition(true);
     }
   };
-  
+
   // Handle exchange type change
   const handleExchangeTypeChange = (type: ExchangeType) => {
     handleInputChange('exchangeType', type);
-    
+
     // Clear swapFor if switching to Talent only
     if (type === 'Talent' && formData.swapFor) {
       handleInputChange('swapFor', undefined);
     }
   };
-  
+
   // Handle image picking
   const handlePickImage = async () => {
     // Request permissions
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (permissionResult.granted === false) {
       Alert.alert('Permission Required', 'You need to grant permission to access your photos.');
       return;
     }
-    
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
     });
-    
+
     if (!result.canceled) {
       // In a real app, you would upload the image to a server here
       // For now, we'll just use the local URI
@@ -153,63 +153,92 @@ export default function CreateListingScreen() {
         url: result.assets[0].uri,
         caption: `Image ${formData.images.length + 1}`
       };
-      
+
       handleInputChange('images', [...formData.images, newImage]);
     }
   };
-  
+
   // Handle image removal
   const handleRemoveImage = (index: number) => {
     const updatedImages = [...formData.images];
     updatedImages.splice(index, 1);
     handleInputChange('images', updatedImages);
   };
-  
+
   // Validate form data
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.title.trim()) {
       newErrors.title = 'Title is required';
     }
-    
+
     if (!formData.description.trim()) {
       newErrors.description = 'Description is required';
     }
-    
+
     if (formData.exchangeType !== 'Direct Swap' && (!formData.talentPrice || formData.talentPrice <= 0)) {
       newErrors.talentPrice = 'Please enter a valid price in Talents';
     }
-    
+
     if ((formData.exchangeType === 'Direct Swap' || formData.exchangeType === 'Both') && !formData.swapFor?.trim()) {
       newErrors.swapFor = 'Please specify what you want to swap for';
     }
-    
+
     if (!formData.location) {
       newErrors.location = 'Location is required';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
+
   // Handle form submission
   const handleSubmit = async () => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to create a listing');
       return;
     }
-    
+
     if (!validateForm()) {
       Alert.alert('Validation Error', 'Please fix the errors in the form');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      const result = await ListingService.createListing(formData);
-      
+      // First, upload all images
+      const uploadedImages = [];
+
+      if (formData.images.length > 0) {
+        // Show uploading message
+        Alert.alert('Uploading', 'Uploading images, please wait...');
+
+        // Upload each image
+        for (const image of formData.images) {
+          try {
+            const imageUrl = await ListingService.uploadListingImage(image.url);
+            uploadedImages.push({
+              url: imageUrl,
+              caption: image.caption || ''
+            });
+          } catch (error) {
+            console.error('Error uploading image:', error);
+            // Continue with other images
+          }
+        }
+      }
+
+      // Create a copy of the form data with uploaded image URLs
+      const dataToSubmit = {
+        ...formData,
+        images: uploadedImages
+      };
+
+      // Create the listing with the uploaded images
+      const result = await ListingService.createListing(dataToSubmit);
+
       Alert.alert(
         'Success',
         'Your listing has been created!',
@@ -247,7 +276,7 @@ export default function CreateListingScreen() {
       setIsSubmitting(false);
     }
   };
-  
+
   // Render category selection button
   const renderCategoryButton = (category: ListingCategory) => (
     <TouchableOpacity
@@ -268,7 +297,7 @@ export default function CreateListingScreen() {
       </Text>
     </TouchableOpacity>
   );
-  
+
   if (!user) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -284,7 +313,7 @@ export default function CreateListingScreen() {
       </View>
     );
   }
-  
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -299,26 +328,26 @@ export default function CreateListingScreen() {
             Share what you're offering or what you need
           </Text>
         </View>
-        
+
         {/* Listing Type Toggle */}
         <View style={styles.toggleContainer}>
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              { 
-                backgroundColor: formData.listingType === 'Offer' 
-                  ? colors.accent 
-                  : colors.background.card 
+              {
+                backgroundColor: formData.listingType === 'Offer'
+                  ? colors.accent
+                  : colors.background.card
               }
             ]}
             onPress={() => handleListingTypeToggle('Offer')}
           >
-            <FontAwesome5 
-              name="hand-holding" 
-              size={16} 
-              color={formData.listingType === 'Offer' ? '#000' : colors.text.secondary} 
+            <FontAwesome5
+              name="hand-holding"
+              size={16}
+              color={formData.listingType === 'Offer' ? '#000' : colors.text.secondary}
             />
-            <Text 
+            <Text
               style={[
                 styles.toggleText,
                 { color: formData.listingType === 'Offer' ? '#000' : colors.text.secondary }
@@ -327,24 +356,24 @@ export default function CreateListingScreen() {
               I'm Offering
             </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              { 
-                backgroundColor: formData.listingType === 'Request' 
-                  ? colors.secondary 
-                  : colors.background.card 
+              {
+                backgroundColor: formData.listingType === 'Request'
+                  ? colors.secondary
+                  : colors.background.card
               }
             ]}
             onPress={() => handleListingTypeToggle('Request')}
           >
-            <FontAwesome5 
-              name="hand-paper" 
-              size={16} 
-              color={formData.listingType === 'Request' ? '#fff' : colors.text.secondary} 
+            <FontAwesome5
+              name="hand-paper"
+              size={16}
+              color={formData.listingType === 'Request' ? '#fff' : colors.text.secondary}
             />
-            <Text 
+            <Text
               style={[
                 styles.toggleText,
                 { color: formData.listingType === 'Request' ? '#fff' : colors.text.secondary }
@@ -354,7 +383,7 @@ export default function CreateListingScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-        
+
         {/* Title */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text.primary }]}>
@@ -378,7 +407,7 @@ export default function CreateListingScreen() {
             </Text>
           )}
         </View>
-        
+
         {/* Description */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text.primary }]}>
@@ -404,7 +433,7 @@ export default function CreateListingScreen() {
             </Text>
           )}
         </View>
-        
+
         {/* Category */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text.primary }]}>
@@ -418,7 +447,7 @@ export default function CreateListingScreen() {
             {categories.map(renderCategoryButton)}
           </ScrollView>
         </View>
-        
+
         {/* Subcategory (optional) */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text.primary }]}>
@@ -435,7 +464,7 @@ export default function CreateListingScreen() {
             onChangeText={(text) => handleInputChange('subCategory', text)}
           />
         </View>
-        
+
         {/* Condition (if applicable) */}
         {showCondition && (
           <View style={styles.inputGroup}>
@@ -452,10 +481,10 @@ export default function CreateListingScreen() {
                   key={condition}
                   style={[
                     styles.conditionButton,
-                    { 
-                      backgroundColor: formData.condition === condition 
-                        ? colors.primary 
-                        : colors.background.card 
+                    {
+                      backgroundColor: formData.condition === condition
+                        ? colors.primary
+                        : colors.background.card
                     }
                   ]}
                   onPress={() => handleInputChange('condition', condition)}
@@ -463,10 +492,10 @@ export default function CreateListingScreen() {
                   <Text
                     style={[
                       styles.conditionText,
-                      { 
-                        color: formData.condition === condition 
-                          ? '#000' 
-                          : colors.text.secondary 
+                      {
+                        color: formData.condition === condition
+                          ? '#000'
+                          : colors.text.secondary
                       }
                     ]}
                   >
@@ -477,7 +506,7 @@ export default function CreateListingScreen() {
             </ScrollView>
           </View>
         )}
-        
+
         {/* Images */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text.primary }]}>
@@ -495,7 +524,7 @@ export default function CreateListingScreen() {
                 </TouchableOpacity>
               </View>
             ))}
-            
+
             <TouchableOpacity
               style={[styles.addImageButton, { backgroundColor: colors.background.card }]}
               onPress={handlePickImage}
@@ -507,7 +536,7 @@ export default function CreateListingScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        
+
         {/* Exchange Type */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text.primary }]}>
@@ -517,28 +546,28 @@ export default function CreateListingScreen() {
             <TouchableOpacity
               style={[
                 styles.exchangeTypeButton,
-                { 
-                  backgroundColor: formData.exchangeType === 'Talent' 
-                    ? colors.primary 
-                    : colors.background.card 
+                {
+                  backgroundColor: formData.exchangeType === 'Talent'
+                    ? colors.primary
+                    : colors.background.card
                 }
               ]}
               onPress={() => handleExchangeTypeChange('Talent')}
             >
-              <FontAwesome5 
-                name="coins" 
-                size={18} 
-                color={formData.exchangeType === 'Talent' ? '#000' : colors.text.secondary} 
+              <FontAwesome5
+                name="coins"
+                size={18}
+                color={formData.exchangeType === 'Talent' ? '#000' : colors.text.secondary}
                 style={styles.exchangeIcon}
               />
               <View>
                 <Text
                   style={[
                     styles.exchangeTitle,
-                    { 
-                      color: formData.exchangeType === 'Talent' 
-                        ? '#000' 
-                        : colors.text.primary 
+                    {
+                      color: formData.exchangeType === 'Talent'
+                        ? '#000'
+                        : colors.text.primary
                     }
                   ]}
                 >
@@ -547,10 +576,10 @@ export default function CreateListingScreen() {
                 <Text
                   style={[
                     styles.exchangeDescription,
-                    { 
-                      color: formData.exchangeType === 'Talent' 
-                        ? '#000' 
-                        : colors.text.secondary 
+                    {
+                      color: formData.exchangeType === 'Talent'
+                        ? '#000'
+                        : colors.text.secondary
                     }
                   ]}
                 >
@@ -558,32 +587,32 @@ export default function CreateListingScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[
                 styles.exchangeTypeButton,
-                { 
-                  backgroundColor: formData.exchangeType === 'Direct Swap' 
-                    ? colors.primary 
-                    : colors.background.card 
+                {
+                  backgroundColor: formData.exchangeType === 'Direct Swap'
+                    ? colors.primary
+                    : colors.background.card
                 }
               ]}
               onPress={() => handleExchangeTypeChange('Direct Swap')}
             >
-              <FontAwesome5 
-                name="exchange-alt" 
-                size={18} 
-                color={formData.exchangeType === 'Direct Swap' ? '#000' : colors.text.secondary} 
+              <FontAwesome5
+                name="exchange-alt"
+                size={18}
+                color={formData.exchangeType === 'Direct Swap' ? '#000' : colors.text.secondary}
                 style={styles.exchangeIcon}
               />
               <View>
                 <Text
                   style={[
                     styles.exchangeTitle,
-                    { 
-                      color: formData.exchangeType === 'Direct Swap' 
-                        ? '#000' 
-                        : colors.text.primary 
+                    {
+                      color: formData.exchangeType === 'Direct Swap'
+                        ? '#000'
+                        : colors.text.primary
                     }
                   ]}
                 >
@@ -592,10 +621,10 @@ export default function CreateListingScreen() {
                 <Text
                   style={[
                     styles.exchangeDescription,
-                    { 
-                      color: formData.exchangeType === 'Direct Swap' 
-                        ? '#000' 
-                        : colors.text.secondary 
+                    {
+                      color: formData.exchangeType === 'Direct Swap'
+                        ? '#000'
+                        : colors.text.secondary
                     }
                   ]}
                 >
@@ -603,32 +632,32 @@ export default function CreateListingScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[
                 styles.exchangeTypeButton,
-                { 
-                  backgroundColor: formData.exchangeType === 'Both' 
-                    ? colors.primary 
-                    : colors.background.card 
+                {
+                  backgroundColor: formData.exchangeType === 'Both'
+                    ? colors.primary
+                    : colors.background.card
                 }
               ]}
               onPress={() => handleExchangeTypeChange('Both')}
             >
-              <FontAwesome5 
-                name="handshake" 
-                size={18} 
-                color={formData.exchangeType === 'Both' ? '#000' : colors.text.secondary} 
+              <FontAwesome5
+                name="handshake"
+                size={18}
+                color={formData.exchangeType === 'Both' ? '#000' : colors.text.secondary}
                 style={styles.exchangeIcon}
               />
               <View>
                 <Text
                   style={[
                     styles.exchangeTitle,
-                    { 
-                      color: formData.exchangeType === 'Both' 
-                        ? '#000' 
-                        : colors.text.primary 
+                    {
+                      color: formData.exchangeType === 'Both'
+                        ? '#000'
+                        : colors.text.primary
                     }
                   ]}
                 >
@@ -637,10 +666,10 @@ export default function CreateListingScreen() {
                 <Text
                   style={[
                     styles.exchangeDescription,
-                    { 
-                      color: formData.exchangeType === 'Both' 
-                        ? '#000' 
-                        : colors.text.secondary 
+                    {
+                      color: formData.exchangeType === 'Both'
+                        ? '#000'
+                        : colors.text.secondary
                     }
                   ]}
                 >
@@ -650,7 +679,7 @@ export default function CreateListingScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        
+
         {/* Price in Talents (if applicable) */}
         {formData.exchangeType !== 'Direct Swap' && (
           <View style={styles.inputGroup}>
@@ -661,9 +690,9 @@ export default function CreateListingScreen() {
               <TextInput
                 style={[
                   styles.talentInput,
-                  { 
-                    backgroundColor: colors.background.card, 
-                    color: colors.text.primary 
+                  {
+                    backgroundColor: colors.background.card,
+                    color: colors.text.primary
                   },
                   errors.talentPrice && { borderColor: colors.error, borderWidth: 1 }
                 ]}
@@ -689,7 +718,7 @@ export default function CreateListingScreen() {
             )}
           </View>
         )}
-        
+
         {/* What are you looking to swap for (if applicable) */}
         {(formData.exchangeType === 'Direct Swap' || formData.exchangeType === 'Both') && (
           <View style={styles.inputGroup}>
@@ -717,7 +746,7 @@ export default function CreateListingScreen() {
             )}
           </View>
         )}
-        
+
         {/* Location */}
         <View style={styles.inputGroup}>
           <View style={styles.labelRow}>
@@ -736,7 +765,7 @@ export default function CreateListingScreen() {
               />
             </View>
           </View>
-          
+
           {useMyLocation ? (
             <View style={[styles.locationDisplay, { backgroundColor: colors.background.card }]}>
               <FontAwesome5 name="map-marker-alt" size={16} color={colors.text.secondary} style={styles.locationIcon} />
@@ -768,7 +797,7 @@ export default function CreateListingScreen() {
             </Text>
           )}
         </View>
-        
+
         {/* Submit Button */}
         <TouchableOpacity
           style={[styles.submitButton, { backgroundColor: colors.primary }]}

@@ -8,108 +8,19 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { FONT, SPACING, SIZES } from '../../../constants/Theme';
+import { FONT, SPACING, SIZES, SHADOWS } from '../../../constants/Theme';
+import DefaultAvatar from '../../../components/DefaultAvatar';
 import { Transaction, TransactionStatus, User } from '../../../types';
 import * as TransactionService from '../../../services/transaction';
-import config from '../../../config';
 
-// Mock data (this would be fetched from API in a real app)
-const mockTransaction: Transaction = {
-  _id: '1',
-  initiator: {
-    _id: '1',
-    username: 'current_user',
-    email: 'user@example.com',
-    fullName: 'Current User',
-    skills: ['Coding', 'Design'],
-    talentBalance: 50,
-    location: {
-      type: 'Point',
-      coordinates: [18.4241, -33.9249],
-      address: 'Cape Town, South Africa'
-    },
-    ratings: [],
-    averageRating: 0,
-    isActive: true,
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2023-01-01T00:00:00Z'
-  },
-  recipient: {
-    _id: '2',
-    username: 'thabo_m',
-    email: 'thabo@example.com',
-    fullName: 'Thabo M',
-    skills: ['Crafts'],
-    talentBalance: 50,
-    location: {
-      type: 'Point',
-      coordinates: [18.4241, -33.9249],
-      address: 'Khayelitsha, Cape Town'
-    },
-    ratings: [],
-    averageRating: 4.5,
-    isActive: true,
-    createdAt: '2023-01-15T10:30:00Z',
-    updatedAt: '2023-01-15T10:30:00Z'
-  },
-  listing: {
-    _id: '1',
-    user: '2',
-    title: 'Handcrafted Pottery',
-    description: 'Beautiful handmade clay pots and vases.',
-    category: 'Crafts',
-    subCategory: 'Pottery',
-    images: [{ url: 'https://via.placeholder.com/150' }],
-    condition: 'New',
-    listingType: 'Offer',
-    exchangeType: 'Both',
-    talentPrice: 15,
-    swapFor: 'Gardening tools',
-    location: {
-      type: 'Point',
-      coordinates: [18.4241, -33.9249],
-      address: 'Khayelitsha, Cape Town'
-    },
-    isActive: true,
-    isFeatured: true,
-    views: 45,
-    likes: [],
-    expiresAt: '2023-03-15T10:30:00Z',
-    createdAt: '2023-01-15T10:30:00Z',
-    updatedAt: '2023-01-15T10:30:00Z'
-  },
-  status: 'Proposed',
-  type: 'Talent',
-  talentAmount: 15,
-  items: [],
-  messages: [
-    {
-      sender: '1',
-      content: 'Hi, I would like to purchase your pottery with Talents.',
-      timestamp: '2023-02-10T15:30:00Z'
-    },
-    {
-      sender: '2',
-      content: 'Yes, that sounds good. When would you like to meet?',
-      timestamp: '2023-02-10T16:00:00Z'
-    }
-  ],
-  statusHistory: [
-    {
-      status: 'Proposed',
-      timestamp: '2023-02-10T15:30:00Z',
-      updatedBy: '1'
-    }
-  ],
-  createdAt: '2023-02-10T15:30:00Z',
-  updatedAt: '2023-02-10T15:30:00Z'
-};
+// No mock data - using real API data
 
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -121,6 +32,307 @@ export default function TransactionDetailScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [newMessage, setNewMessage] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
+
+  // Define styles inside the component to access the theme colors
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    header: {
+      padding: SPACING.large,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      marginBottom: SPACING.medium,
+    },
+    transactionTitle: {
+      fontSize: FONT.sizes.large,
+      fontWeight: 'bold',
+      marginBottom: SPACING.medium,
+      textAlign: 'center',
+    },
+    participantsHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: SPACING.medium,
+    },
+    headerParticipant: {
+      alignItems: 'center',
+      flex: 1,
+    },
+    headerAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      marginBottom: SPACING.xs,
+    },
+    headerParticipantName: {
+      fontSize: FONT.sizes.small,
+      textAlign: 'center',
+    },
+    exchangeIconContainer: {
+      alignItems: 'center',
+      paddingHorizontal: SPACING.small,
+    },
+    talentAmount: {
+      fontSize: FONT.sizes.small,
+      fontWeight: 'bold',
+      marginTop: SPACING.xs,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: SPACING.small,
+    },
+    statusBadge: {
+      paddingHorizontal: SPACING.medium,
+      paddingVertical: SPACING.small,
+      borderRadius: SIZES.borderRadius.round,
+      marginBottom: SPACING.medium,
+      minWidth: 120,
+      alignItems: 'center',
+      ...SHADOWS.medium,
+    },
+    statusText: {
+      fontSize: FONT.sizes.medium,
+      fontWeight: 'bold',
+      color: colors.text.inverse,
+    },
+    transactionId: {
+      fontSize: FONT.sizes.small,
+      marginBottom: SPACING.small,
+    },
+    date: {
+      fontSize: FONT.sizes.small,
+    },
+    section: {
+      margin: SPACING.medium,
+      borderRadius: SIZES.borderRadius.medium,
+      padding: SPACING.medium,
+      ...SHADOWS.small,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    sectionTitle: {
+      fontSize: FONT.sizes.large,
+      fontWeight: 'bold',
+      marginBottom: SPACING.medium,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      paddingBottom: SPACING.small,
+    },
+    detailRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: SPACING.medium,
+      backgroundColor: colors.background.input,
+      padding: SPACING.small,
+      borderRadius: SIZES.borderRadius.small,
+    },
+    detailLabel: {
+      fontSize: FONT.sizes.small,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      color: colors.text.secondary,
+    },
+    detailValue: {
+      fontSize: FONT.sizes.medium,
+      fontWeight: 'bold',
+    },
+    balanceContainer: {
+      alignItems: 'center',
+      marginVertical: SPACING.medium,
+      backgroundColor: 'rgba(249, 200, 14, 0.1)',
+      padding: SPACING.medium,
+      borderRadius: SIZES.borderRadius.medium,
+    },
+    balanceAmount: {
+      fontSize: FONT.sizes.xxl,
+      fontWeight: 'bold',
+      marginBottom: SPACING.xs,
+    },
+    balanceLabel: {
+      fontSize: FONT.sizes.small,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    listingLink: {
+      fontSize: FONT.sizes.medium,
+      fontWeight: 'bold',
+      textDecorationLine: 'underline',
+      color: colors.primary,
+    },
+    participant: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: SPACING.medium,
+      backgroundColor: colors.background.input,
+      padding: SPACING.small,
+      borderRadius: SIZES.borderRadius.medium,
+    },
+    participantLabel: {
+      fontSize: FONT.sizes.small,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      color: colors.text.secondary,
+    },
+    participantInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    participantName: {
+      fontSize: FONT.sizes.medium,
+      fontWeight: 'bold',
+      marginRight: SPACING.small,
+    },
+    message: {
+      marginBottom: SPACING.medium,
+      padding: SPACING.medium,
+      backgroundColor: colors.background.input,
+      borderRadius: SIZES.borderRadius.medium,
+      borderLeftWidth: 2,
+      borderLeftColor: colors.divider,
+    },
+    messageHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: SPACING.small,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      paddingBottom: SPACING.xs,
+    },
+    messageSender: {
+      fontSize: FONT.sizes.small,
+      fontWeight: 'bold',
+    },
+    messageTime: {
+      fontSize: FONT.sizes.xs,
+    },
+    messageContent: {
+      fontSize: FONT.sizes.medium,
+      lineHeight: 20,
+    },
+    messageInputContainer: {
+      flexDirection: 'row',
+      padding: SPACING.medium,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      backgroundColor: colors.background.darker,
+    },
+    messageInput: {
+      flex: 1,
+      backgroundColor: colors.background.input,
+      borderRadius: SIZES.borderRadius.medium,
+      paddingHorizontal: SPACING.medium,
+      paddingVertical: SPACING.small,
+      color: colors.text.primary,
+      marginRight: SPACING.small,
+      borderWidth: 1,
+      borderColor: colors.divider,
+    },
+    sendButton: {
+      backgroundColor: colors.primary,
+      borderRadius: SIZES.borderRadius.medium,
+      padding: SPACING.small,
+      ...SHADOWS.small,
+    },
+    historyItem: {
+      marginBottom: SPACING.medium,
+      padding: SPACING.medium,
+      backgroundColor: colors.background.input,
+      borderRadius: SIZES.borderRadius.medium,
+      borderLeftWidth: 3,
+    },
+    historyHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: SPACING.small,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      paddingBottom: SPACING.small,
+    },
+    historyStatus: {
+      paddingHorizontal: SPACING.small,
+      paddingVertical: SPACING.xs,
+      borderRadius: SIZES.borderRadius.small,
+      minWidth: 80,
+      alignItems: 'center',
+    },
+    historyStatusText: {
+      fontSize: FONT.sizes.xs,
+      fontWeight: 'bold',
+      color: colors.text.inverse,
+    },
+    historyTime: {
+      fontSize: FONT.sizes.xs,
+    },
+    historyDescription: {
+      fontSize: FONT.sizes.medium,
+      marginBottom: SPACING.small,
+      fontWeight: '500',
+    },
+    historyUpdatedBy: {
+      fontSize: FONT.sizes.small,
+      fontStyle: 'italic',
+    },
+    actionBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      padding: SPACING.medium,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      backgroundColor: colors.background.darker,
+    },
+    actionButton: {
+      paddingHorizontal: SPACING.large,
+      paddingVertical: SPACING.medium,
+      borderRadius: SIZES.borderRadius.medium,
+      ...SHADOWS.medium,
+      minWidth: 120,
+      alignItems: 'center',
+    },
+    actionButtonText: {
+      fontWeight: 'bold',
+      color: colors.text.inverse,
+      fontSize: FONT.sizes.medium,
+    },
+    errorText: {
+      fontSize: FONT.sizes.large,
+      textAlign: 'center',
+      marginBottom: SPACING.large,
+      padding: SPACING.large,
+      fontWeight: 'bold',
+    },
+    button: {
+      alignSelf: 'center',
+      paddingHorizontal: SPACING.large,
+      paddingVertical: SPACING.medium,
+      borderRadius: SIZES.borderRadius.medium,
+      ...SHADOWS.medium,
+    },
+    buttonText: {
+      fontWeight: 'bold',
+      color: colors.text.inverse,
+    },
+    errorContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: SPACING.large,
+    },
+    errorSubText: {
+      fontSize: FONT.sizes.medium,
+      textAlign: 'center',
+      marginBottom: SPACING.large,
+      lineHeight: 22,
+    },
+  });
 
   useEffect(() => {
     fetchTransaction();
@@ -143,18 +355,6 @@ export default function TransactionDetailScreen() {
     setLoading(true);
 
     try {
-      // Use mock data if enabled in config
-      if (config.enableMockData) {
-        console.log('Using mock data for transaction');
-        // For now, we'll use mock data
-        setTimeout(() => {
-          setTransaction(mockTransaction);
-          console.log('Set mock transaction data:', mockTransaction);
-          setLoading(false);
-        }, 1000);
-        return;
-      }
-
       // Get transaction from API
       console.log('Fetching transaction from API');
       const data = await TransactionService.getTransactionById(id as string);
@@ -162,7 +362,7 @@ export default function TransactionDetailScreen() {
       setTransaction(data);
     } catch (error) {
       console.error('Error fetching transaction:', error);
-      Alert.alert('Error', 'Failed to load transaction details');
+      Alert.alert('Error', 'Failed to load transaction details. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -171,18 +371,19 @@ export default function TransactionDetailScreen() {
   const getStatusColor = (status: TransactionStatus) => {
     switch (status) {
       case 'Proposed':
-        return colors.warning;
+        return colors.transaction.proposed;
       case 'Accepted':
-        return colors.info;
+        return colors.transaction.accepted;
       case 'Completed':
-        return colors.success;
+        return colors.transaction.completed;
       case 'Rejected':
+        return colors.transaction.rejected;
       case 'Cancelled':
-        return colors.error;
+        return colors.transaction.cancelled;
       case 'Disputed':
-        return colors.error;
+        return colors.transaction.disputed;
       case 'Resolved':
-        return colors.accent;
+        return colors.transaction.resolved;
       default:
         return colors.text.secondary;
     }
@@ -309,22 +510,6 @@ export default function TransactionDetailScreen() {
             try {
               setLoading(true);
 
-              // Use mock data if enabled in config
-              if (config.enableMockData) {
-                // In a real app, this would call an API
-                if (transaction) {
-                  const updatedTransaction = { ...transaction, status: 'Accepted' as TransactionStatus };
-                  updatedTransaction.statusHistory.push({
-                    status: 'Accepted',
-                    timestamp: new Date().toISOString(),
-                    updatedBy: user?._id || ''
-                  });
-                  setTransaction(updatedTransaction);
-                }
-                setLoading(false);
-                return;
-              }
-
               // Update transaction status via API
               console.log('Accepting transaction:', id);
               try {
@@ -334,9 +519,9 @@ export default function TransactionDetailScreen() {
                 );
                 console.log('Transaction accepted successfully:', updatedTransaction);
                 setTransaction(updatedTransaction);
-              } catch (apiError) {
+              } catch (apiError: any) {
                 console.error('API error accepting transaction:', apiError);
-                Alert.alert('API Error', 'Failed to accept transaction: ' + apiError.message);
+                Alert.alert('API Error', 'Failed to accept transaction: ' + (apiError.message || 'Unknown error'));
               }
             } catch (error) {
               console.error('Error accepting transaction:', error);
@@ -368,22 +553,6 @@ export default function TransactionDetailScreen() {
             try {
               setLoading(true);
 
-              // Use mock data if enabled in config
-              if (config.enableMockData) {
-                // In a real app, this would call an API
-                if (transaction) {
-                  const updatedTransaction = { ...transaction, status: 'Rejected' as TransactionStatus };
-                  updatedTransaction.statusHistory.push({
-                    status: 'Rejected',
-                    timestamp: new Date().toISOString(),
-                    updatedBy: user?._id || ''
-                  });
-                  setTransaction(updatedTransaction);
-                }
-                setLoading(false);
-                return;
-              }
-
               // Update transaction status via API
               console.log('Rejecting transaction:', id);
               try {
@@ -393,9 +562,9 @@ export default function TransactionDetailScreen() {
                 );
                 console.log('Transaction rejected successfully:', updatedTransaction);
                 setTransaction(updatedTransaction);
-              } catch (apiError) {
+              } catch (apiError: any) {
                 console.error('API error rejecting transaction:', apiError);
-                Alert.alert('API Error', 'Failed to reject transaction: ' + apiError.message);
+                Alert.alert('API Error', 'Failed to reject transaction: ' + (apiError.message || 'Unknown error'));
               }
             } catch (error) {
               console.error('Error rejecting transaction:', error);
@@ -427,40 +596,83 @@ export default function TransactionDetailScreen() {
             try {
               setLoading(true);
 
-              // Use mock data if enabled in config
-              if (config.enableMockData) {
-                // In a real app, this would call an API
-                if (transaction) {
-                  const updatedTransaction = { ...transaction, status: 'Completed' as TransactionStatus };
-                  updatedTransaction.statusHistory.push({
-                    status: 'Completed',
-                    timestamp: new Date().toISOString(),
-                    updatedBy: user?._id || ''
-                  });
-                  setTransaction(updatedTransaction);
-                }
-                setLoading(false);
-                return;
-              }
-
               // Update transaction status via API
               console.log('Completing transaction:', id);
               try {
-                const updatedTransaction = await TransactionService.updateTransactionStatus(
-                  id as string,
-                  'Completed'
-                );
-                console.log('Transaction completed successfully:', updatedTransaction);
-                setTransaction(updatedTransaction);
+                // Show confirmation for talent transactions
+                if (transaction?.type === 'Talent' || transaction?.type === 'Combined') {
+                  const talentAmount = transaction.talentAmount || 0;
+                  const isInitiator = typeof transaction.initiator === 'string'
+                    ? transaction.initiator === user?._id
+                    : (transaction.initiator as User)._id === user?._id;
 
-                // Refresh user profile to get updated talent balance
-                if (user && refreshProfile) {
-                  console.log('Refreshing user profile after transaction completion');
-                  await refreshProfile();
+                  const message = isInitiator
+                    ? `You are about to send ${talentAmount} talents to complete this transaction. Continue?`
+                    : `You are about to receive ${talentAmount} talents to complete this transaction. Continue?`;
+
+                  Alert.alert(
+                    'Confirm Talent Transfer',
+                    message,
+                    [
+                      {
+                        text: 'Cancel',
+                        style: 'cancel',
+                        onPress: () => setLoading(false)
+                      },
+                      {
+                        text: 'Continue',
+                        onPress: async () => {
+                          try {
+                            const updatedTransaction = await TransactionService.updateTransactionStatus(
+                              id as string,
+                              'Completed'
+                            );
+                            console.log('Transaction completed successfully:', updatedTransaction);
+                            setTransaction(updatedTransaction);
+
+                            // Refresh user profile to get updated talent balance
+                            if (user && refreshProfile) {
+                              console.log('Refreshing user profile after transaction completion');
+                              await refreshProfile();
+
+                              // Show success message with updated balance
+                              Alert.alert(
+                                'Transaction Completed',
+                                `The transaction has been completed successfully! Your updated talent balance will be reflected in your profile.`,
+                                [{ text: 'OK' }]
+                              );
+                            }
+                          } catch (error) {
+                            console.error('Error completing transaction:', error);
+                            Alert.alert('Error', 'Failed to complete transaction. Please try again.');
+                          } finally {
+                            setLoading(false);
+                          }
+                        }
+                      }
+                    ]
+                  );
+                } else {
+                  // For non-talent transactions, proceed directly
+                  const updatedTransaction = await TransactionService.updateTransactionStatus(
+                    id as string,
+                    'Completed'
+                  );
+                  console.log('Transaction completed successfully:', updatedTransaction);
+                  setTransaction(updatedTransaction);
+
+                  // Show success message
+                  Alert.alert(
+                    'Transaction Completed',
+                    'The transaction has been completed successfully!',
+                    [{ text: 'OK' }]
+                  );
+
+                  setLoading(false);
                 }
-              } catch (apiError) {
+              } catch (apiError: any) {
                 console.error('API error completing transaction:', apiError);
-                Alert.alert('API Error', 'Failed to complete transaction: ' + apiError.message);
+                Alert.alert('API Error', 'Failed to complete transaction: ' + (apiError.message || 'Unknown error'));
               }
             } catch (error) {
               console.error('Error completing transaction:', error);
@@ -492,22 +704,6 @@ export default function TransactionDetailScreen() {
             try {
               setLoading(true);
 
-              // Use mock data if enabled in config
-              if (config.enableMockData) {
-                // In a real app, this would call an API
-                if (transaction) {
-                  const updatedTransaction = { ...transaction, status: 'Cancelled' as TransactionStatus };
-                  updatedTransaction.statusHistory.push({
-                    status: 'Cancelled',
-                    timestamp: new Date().toISOString(),
-                    updatedBy: user?._id || ''
-                  });
-                  setTransaction(updatedTransaction);
-                }
-                setLoading(false);
-                return;
-              }
-
               // Update transaction status via API
               console.log('Cancelling transaction:', id);
               try {
@@ -517,9 +713,9 @@ export default function TransactionDetailScreen() {
                 );
                 console.log('Transaction cancelled successfully:', updatedTransaction);
                 setTransaction(updatedTransaction);
-              } catch (apiError) {
+              } catch (apiError: any) {
                 console.error('API error cancelling transaction:', apiError);
-                Alert.alert('API Error', 'Failed to cancel transaction: ' + apiError.message);
+                Alert.alert('API Error', 'Failed to cancel transaction: ' + (apiError.message || 'Unknown error'));
               }
             } catch (error) {
               console.error('Error cancelling transaction:', error);
@@ -539,26 +735,6 @@ export default function TransactionDetailScreen() {
     setSending(true);
 
     try {
-      // Use mock data if enabled in config
-      if (config.enableMockData) {
-        // In a real app, this would call an API
-        const updatedTransaction = { ...transaction };
-        updatedTransaction.messages.push({
-          sender: user?._id || '',
-          content: newMessage.trim(),
-          timestamp: new Date().toISOString()
-        });
-
-        setTransaction(updatedTransaction);
-        setNewMessage('');
-
-        // Simulate API delay
-        setTimeout(() => {
-          setSending(false);
-        }, 500);
-        return;
-      }
-
       // Send message to API
       const updatedTransaction = await TransactionService.addTransactionMessage(
         id as string,
@@ -580,7 +756,7 @@ export default function TransactionDetailScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
         <View style={styles.errorContainer}>
-          <FontAwesome5 name="lock" size={48} color={colors.text.secondary} />
+          <Icon name="lock" size={48} color={colors.text.secondary} />
           <Text style={[styles.errorText, { color: colors.text.secondary }]}>
             Authentication Required
           </Text>
@@ -631,21 +807,71 @@ export default function TransactionDetailScreen() {
       <ScrollView style={styles.scrollView}>
         {/* Transaction Header */}
         <View style={styles.header}>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: getStatusColor(transaction.status) }
-            ]}
-          >
-            <Text style={styles.statusText}>{transaction.status}</Text>
-          </View>
-
-          <Text style={[styles.transactionId, { color: colors.text.secondary }]}>
-            ID: {transaction._id}
+          <Text style={[styles.transactionTitle, { color: colors.text.primary }]}>
+            {transaction.listing ? transaction.listing.title : 'Transaction'}
           </Text>
 
-          <Text style={[styles.date, { color: colors.text.secondary }]}>
-            Created: {formatDate(transaction.createdAt)}
+          <View style={styles.participantsHeader}>
+            {/* Initiator */}
+            <View style={styles.headerParticipant}>
+              {initiator.avatar ? (
+                <Image source={{ uri: initiator.avatar }} style={styles.headerAvatar} />
+              ) : (
+                <DefaultAvatar
+                  name={initiator.fullName || ''}
+                  userId={initiator._id}
+                  size={40}
+                  style={styles.headerAvatar}
+                />
+              )}
+              <Text style={[styles.headerParticipantName, { color: colors.text.secondary }]}>
+                {initiator.fullName}
+              </Text>
+            </View>
+
+            {/* Exchange Icon */}
+            <View style={styles.exchangeIconContainer}>
+              <Icon name="exchange-alt" size={16} color={colors.text.muted} />
+              <Text style={[styles.talentAmount, { color: colors.primary }]}>
+                {transaction.type !== 'Direct Swap' ? `✦ ${transaction.talentAmount}` : ''}
+              </Text>
+            </View>
+
+            {/* Recipient */}
+            <View style={styles.headerParticipant}>
+              {recipient.avatar ? (
+                <Image source={{ uri: recipient.avatar }} style={styles.headerAvatar} />
+              ) : (
+                <DefaultAvatar
+                  name={recipient.fullName || ''}
+                  userId={recipient._id}
+                  size={40}
+                  style={styles.headerAvatar}
+                />
+              )}
+              <Text style={[styles.headerParticipantName, { color: colors.text.secondary }]}>
+                {recipient.fullName}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.statusRow}>
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: getStatusColor(transaction.status) }
+              ]}
+            >
+              <Text style={styles.statusText}>{transaction.status}</Text>
+            </View>
+
+            <Text style={[styles.date, { color: colors.text.secondary }]}>
+              {formatDate(transaction.createdAt)}
+            </Text>
+          </View>
+
+          <Text style={[styles.transactionId, { color: colors.text.muted }]}>
+            ID: {transaction._id}
           </Text>
         </View>
 
@@ -720,6 +946,16 @@ export default function TransactionDetailScreen() {
               style={styles.participantInfo}
               onPress={() => router.push(`/(app)/profile/${initiator._id}`)}
             >
+              {initiator.avatar ? (
+                <Image source={{ uri: initiator.avatar }} style={styles.participantAvatar} />
+              ) : (
+                <DefaultAvatar
+                  name={initiator.fullName || ''}
+                  userId={initiator._id}
+                  size={30}
+                  style={styles.participantAvatar}
+                />
+              )}
               <Text style={[styles.participantName, { color: colors.text.primary }]}>
                 {initiator.fullName}
               </Text>
@@ -735,6 +971,16 @@ export default function TransactionDetailScreen() {
               style={styles.participantInfo}
               onPress={() => router.push(`/(app)/profile/${recipient._id}`)}
             >
+              {recipient.avatar ? (
+                <Image source={{ uri: recipient.avatar }} style={styles.participantAvatar} />
+              ) : (
+                <DefaultAvatar
+                  name={recipient.fullName || ''}
+                  userId={recipient._id}
+                  size={30}
+                  style={styles.participantAvatar}
+                />
+              )}
               <Text style={[styles.participantName, { color: colors.text.primary }]}>
                 {recipient.fullName}
               </Text>
@@ -756,9 +1002,21 @@ export default function TransactionDetailScreen() {
             return (
               <View key={index} style={styles.message}>
                 <View style={styles.messageHeader}>
-                  <Text style={[styles.messageSender, { color: colors.accent }]}>
-                    {(senderUser as User)?.fullName || 'User'}
-                  </Text>
+                  <View style={styles.messageSenderContainer}>
+                    {(senderUser as User)?.avatar ? (
+                      <Image source={{ uri: (senderUser as User).avatar }} style={styles.messageAvatar} />
+                    ) : (
+                      <DefaultAvatar
+                        name={(senderUser as User)?.fullName || 'User'}
+                        userId={(senderUser as User)?._id || 'unknown'}
+                        size={24}
+                        style={styles.messageAvatar}
+                      />
+                    )}
+                    <Text style={[styles.messageSender, { color: colors.accent }]}>
+                      {(senderUser as User)?.fullName || 'User'}
+                    </Text>
+                  </View>
                   <Text style={[styles.messageTime, { color: colors.text.secondary }]}>
                     {formatDate(message.timestamp)}
                   </Text>
@@ -812,10 +1070,50 @@ export default function TransactionDetailScreen() {
           </Text>
 
           {transaction.statusHistory.map((item, index) => {
-            const updatedByUser = item.updatedBy === initiator._id ? initiator : recipient;
+            // Handle different formats of updatedBy
+            let updatedByName = 'Unknown';
+            if (item.updatedBy) {
+              if (typeof item.updatedBy === 'string') {
+                // If it's just an ID, try to match with initiator or recipient
+                if (item.updatedBy === (typeof initiator === 'string' ? initiator : initiator._id)) {
+                  updatedByName = typeof initiator === 'string' ? 'Initiator' : initiator.fullName;
+                } else if (item.updatedBy === (typeof recipient === 'string' ? recipient : recipient._id)) {
+                  updatedByName = typeof recipient === 'string' ? 'Recipient' : recipient.fullName;
+                } else {
+                  updatedByName = `User ${item.updatedBy.substring(0, 6)}...`;
+                }
+              } else if (typeof item.updatedBy === 'object' && item.updatedBy !== null) {
+                // If it's a user object
+                updatedByName = (item.updatedBy as User).fullName || 'Unknown';
+              }
+            }
+
+            // Get status description
+            const getStatusDescription = (status: string) => {
+              switch(status) {
+                case 'Proposed': return 'Transaction was proposed';
+                case 'Accepted': return 'Transaction was accepted';
+                case 'Rejected': return 'Transaction was rejected';
+                case 'Completed':
+                  if (transaction.type === 'Talent' || transaction.type === 'Combined') {
+                    return `Transaction completed with ${transaction.talentAmount} talents transferred`;
+                  }
+                  return 'Transaction was completed';
+                case 'Cancelled': return 'Transaction was cancelled';
+                case 'Disputed': return 'Transaction was marked as disputed';
+                case 'Resolved': return 'Dispute was resolved';
+                default: return `Status changed to ${status}`;
+              }
+            };
 
             return (
-              <View key={index} style={styles.historyItem}>
+              <View
+                key={index}
+                style={[
+                  styles.historyItem,
+                  { borderLeftColor: getStatusColor(item.status as TransactionStatus) }
+                ]}
+              >
                 <View style={styles.historyHeader}>
                   <View
                     style={[
@@ -829,8 +1127,11 @@ export default function TransactionDetailScreen() {
                     {formatDate(item.timestamp)}
                   </Text>
                 </View>
-                <Text style={[styles.historyUpdatedBy, { color: colors.text.primary }]}>
-                  Updated by: {(updatedByUser as User)?.fullName || 'User'}
+                <Text style={[styles.historyDescription, { color: colors.text.primary }]}>
+                  {getStatusDescription(item.status)}
+                </Text>
+                <Text style={[styles.historyUpdatedBy, { color: colors.text.muted }]}>
+                  Updated by: {updatedByName}
                 </Text>
               </View>
             );
@@ -902,12 +1203,18 @@ const styles = StyleSheet.create({
   header: {
     padding: SPACING.large,
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: SPACING.medium,
   },
   statusBadge: {
     paddingHorizontal: SPACING.medium,
     paddingVertical: SPACING.small,
     borderRadius: SIZES.borderRadius.round,
     marginBottom: SPACING.medium,
+    minWidth: 120,
+    alignItems: 'center',
+    ...SHADOWS.medium,
   },
   statusText: {
     fontSize: FONT.sizes.medium,
@@ -925,6 +1232,9 @@ const styles = StyleSheet.create({
     margin: SPACING.medium,
     borderRadius: SIZES.borderRadius.medium,
     padding: SPACING.medium,
+    ...SHADOWS.small,
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(249, 200, 14, 0.7)', // Faded primary color
   },
   sectionTitle: {
     fontSize: FONT.sizes.large,
@@ -937,10 +1247,16 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING.small,
+    marginBottom: SPACING.medium,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: SPACING.small,
+    borderRadius: SIZES.borderRadius.small,
   },
   detailLabel: {
     fontSize: FONT.sizes.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontSize: FONT.sizes.small,
   },
   detailValue: {
     fontSize: FONT.sizes.medium,
@@ -949,6 +1265,9 @@ const styles = StyleSheet.create({
   balanceContainer: {
     alignItems: 'center',
     marginVertical: SPACING.medium,
+    backgroundColor: 'rgba(249, 200, 14, 0.1)',
+    padding: SPACING.medium,
+    borderRadius: SIZES.borderRadius.medium,
   },
   balanceAmount: {
     fontSize: FONT.sizes.xxl,
@@ -957,24 +1276,38 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: FONT.sizes.small,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   listingLink: {
     fontSize: FONT.sizes.medium,
     fontWeight: 'bold',
     textDecorationLine: 'underline',
+    color: '#F9C80E',
   },
   participant: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.medium,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: SPACING.small,
+    borderRadius: SIZES.borderRadius.medium,
   },
   participantLabel: {
-    fontSize: FONT.sizes.medium,
+    fontSize: FONT.sizes.small,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   participantInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  participantAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginRight: SPACING.small,
   },
   participantName: {
     fontSize: FONT.sizes.medium,
@@ -983,14 +1316,29 @@ const styles = StyleSheet.create({
   },
   message: {
     marginBottom: SPACING.medium,
-    padding: SPACING.small,
+    padding: SPACING.medium,
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: SIZES.borderRadius.medium,
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(255, 255, 255, 0.2)',
   },
   messageHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.small,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    paddingBottom: SPACING.xs,
+  },
+  messageSenderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  messageAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: SPACING.xs,
   },
   messageSender: {
     fontSize: FONT.sizes.small,
@@ -1001,6 +1349,7 @@ const styles = StyleSheet.create({
   },
   messageContent: {
     fontSize: FONT.sizes.medium,
+    lineHeight: 20,
   },
   messageInputContainer: {
     flexDirection: 'row',
@@ -1046,6 +1395,10 @@ const styles = StyleSheet.create({
   },
   historyTime: {
     fontSize: FONT.sizes.xs,
+  },
+  historyDescription: {
+    fontSize: FONT.sizes.medium,
+    marginBottom: SPACING.xs,
   },
   historyUpdatedBy: {
     fontSize: FONT.sizes.small,

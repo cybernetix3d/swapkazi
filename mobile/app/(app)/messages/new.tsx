@@ -10,83 +10,28 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  FlatList
+  FlatList,
+  Image
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { User, Listing } from '../../../types';
 import * as ListingService from '../../../services/listingService';
+import * as UserService from '../../../services/userService';
+import * as MessageService from '../../../services/messageService';
+import DefaultAvatar from '../../../components/DefaultAvatar';
 
-// Mock users for recipient selection
-const mockUsers = [
-  {
-    _id: '2',
-    username: 'thabo_m',
-    email: 'thabo@example.com',
-    fullName: 'Thabo M',
-    avatar: 'https://via.placeholder.com/50',
-    skills: ['Crafts'],
-    talentBalance: 50,
-    location: {
-      type: 'Point',
-      coordinates: [18.4241, -33.9249],
-      address: 'Khayelitsha, Cape Town'
-    },
-    ratings: [],
-    averageRating: 4.5,
-    isActive: true,
-    createdAt: '2023-01-15T10:30:00Z',
-    updatedAt: '2023-01-15T10:30:00Z'
-  },
-  {
-    _id: '3',
-    username: 'lerato_k',
-    email: 'lerato@example.com',
-    fullName: 'Lerato K',
-    avatar: 'https://via.placeholder.com/50',
-    skills: ['Gardening'],
-    talentBalance: 75,
-    location: {
-      type: 'Point',
-      coordinates: [18.4641, -33.9249],
-      address: 'Gugulethu, Cape Town'
-    },
-    ratings: [],
-    averageRating: 4.8,
-    isActive: true,
-    createdAt: '2023-01-10T09:20:00Z',
-    updatedAt: '2023-01-10T09:20:00Z'
-  },
-  {
-    _id: '4',
-    username: 'mandla_j',
-    email: 'mandla@example.com',
-    fullName: 'Mandla J',
-    avatar: 'https://via.placeholder.com/50',
-    skills: ['Carpentry', 'Plumbing'],
-    talentBalance: 95,
-    location: {
-      type: 'Point',
-      coordinates: [18.4841, -33.9649],
-      address: 'Philippi, Cape Town'
-    },
-    ratings: [],
-    averageRating: 4.6,
-    isActive: true,
-    createdAt: '2022-12-20T11:45:00Z',
-    updatedAt: '2022-12-20T11:45:00Z'
-  }
-];
+// We'll fetch users from the API instead of using mock data
 
 export default function NewConversationScreen() {
   const { userId, listingId } = useLocalSearchParams<{ userId?: string; listingId?: string }>();
   const { colors } = useTheme();
   const { user: currentUser } = useAuth();
   const router = useRouter();
-  
+
   const [recipient, setRecipient] = useState<User | null>(null);
   const [listing, setListing] = useState<Listing | null>(null);
   const [message, setMessage] = useState<string>('');
@@ -95,57 +40,68 @@ export default function NewConversationScreen() {
   const [showUserSelection, setShowUserSelection] = useState<boolean>(false);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  
+
   useEffect(() => {
     fetchData();
   }, [userId, listingId]);
-  
+
   const fetchData = async () => {
     setLoading(true);
-    
+
     try {
-      // In a real app, you'd fetch the recipient and listing from your API
-      // For now, we'll use mock data
-      
-      // Mock fetch user if specified
+      // Fetch user if specified
       if (userId) {
-        // Find user in mock data
-        const foundUser = mockUsers.find(user => user._id === userId);
-        if (foundUser) {
-          setRecipient(foundUser);
+        try {
+          const fetchedUser = await UserService.getUserById(userId);
+          if (fetchedUser) {
+            setRecipient(fetchedUser);
+            console.log('Recipient set:', fetchedUser.fullName);
+          }
+        } catch (error) {
+          console.error('Error fetching user:', error);
         }
       }
-      
-      // Mock fetch listing if specified
+
+      // Fetch listing if specified
       if (listingId) {
         try {
           const fetchedListing = await ListingService.getListingById(listingId);
           setListing(fetchedListing);
-          
+
           // If we have a listing but no recipient, set the recipient as the listing owner
           if (fetchedListing && !userId) {
             if (typeof fetchedListing.user !== 'string') {
               setRecipient(fetchedListing.user as User);
             } else {
-              // Find user in mock data
-              const foundUser = mockUsers.find(user => user._id === fetchedListing.user);
-              if (foundUser) {
-                setRecipient(foundUser);
+              try {
+                const listingOwner = await UserService.getUserById(fetchedListing.user);
+                if (listingOwner) {
+                  setRecipient(listingOwner);
+                }
+              } catch (userError) {
+                console.error('Error fetching listing owner:', userError);
               }
             }
           }
-          
+
           // Pre-fill message if it's about a listing
           setMessage(`Hi! I'm interested in your listing "${fetchedListing.title}". Is it still available?`);
         } catch (error) {
           console.error('Error fetching listing:', error);
         }
       }
-      
+
       // If no recipient was specified, show user selection
       if (!userId && !listingId) {
         setShowUserSelection(true);
-        setAvailableUsers(mockUsers);
+        try {
+          // Fetch a list of users to message
+          const users = await UserService.getUsers();
+          setAvailableUsers(users);
+        } catch (error) {
+          console.error('Error fetching users:', error);
+          setAvailableUsers([]);
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -153,42 +109,55 @@ export default function NewConversationScreen() {
       setLoading(false);
     }
   };
-  
+
   const sendMessage = async () => {
     if (!message.trim() || !recipient || sending) return;
-    
+
     setSending(true);
-    
+
     try {
-      // In a real app, this would call your API to create a conversation and send message
-      // For now, we'll just simulate it
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Hardcoded conversation ID for demo
-      const conversationId = '1';
-      
+      // Create or get conversation with the recipient
+      console.log('Creating conversation with recipient:', recipient._id);
+      const conversation = await MessageService.createOrGetConversation(
+        recipient._id,
+        listing?._id
+      );
+
+      if (!conversation || !conversation._id) {
+        throw new Error('Failed to create conversation');
+      }
+
+      console.log('Conversation created/retrieved:', conversation._id);
+
+      // Send the message
+      await MessageService.sendMessage({
+        conversationId: conversation._id,
+        content: message.trim()
+      });
+
+      console.log('Message sent successfully');
+
       // Navigate to the conversation detail screen
-      router.replace(`/(app)/messages/${conversationId}`);
+      router.replace(`/(app)/messages/${conversation._id}`);
     } catch (error) {
       console.error('Error sending message:', error);
+      alert('Failed to send message. Please try again.');
       setSending(false);
     }
   };
-  
+
   const selectUser = (user: User) => {
     setRecipient(user);
     setShowUserSelection(false);
   };
-  
-  const filteredUsers = searchQuery 
-    ? availableUsers.filter(user => 
+
+  const filteredUsers = searchQuery
+    ? availableUsers.filter(user =>
         user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.username.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : availableUsers;
-  
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -196,7 +165,7 @@ export default function NewConversationScreen() {
       </View>
     );
   }
-  
+
   // Show user selection if no recipient is set
   if (showUserSelection) {
     return (
@@ -210,7 +179,7 @@ export default function NewConversationScreen() {
             onChangeText={setSearchQuery}
           />
         </View>
-        
+
         <FlatList
           data={filteredUsers}
           keyExtractor={(item) => item._id}
@@ -221,20 +190,20 @@ export default function NewConversationScreen() {
             >
               <View style={styles.avatarContainer}>
                 {item.avatar ? (
-                  <View style={styles.avatar}>
-                    <Text style={{ fontSize: 20, color: '#fff' }}>
-                      {item.fullName.charAt(0)}
-                    </Text>
-                  </View>
+                  <Image
+                    source={{ uri: item.avatar }}
+                    style={styles.avatar}
+                  />
                 ) : (
-                  <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                    <Text style={{ fontSize: 20, color: '#000' }}>
-                      {item.fullName.charAt(0)}
-                    </Text>
-                  </View>
+                  <DefaultAvatar
+                    name={item.fullName || ''}
+                    userId={item._id}
+                    size={40}
+                    style={styles.avatar}
+                  />
                 )}
               </View>
-              
+
               <View style={styles.userInfo}>
                 <Text style={[styles.userName, { color: colors.text.primary }]}>
                   {item.fullName}
@@ -256,7 +225,7 @@ export default function NewConversationScreen() {
       </View>
     );
   }
-  
+
   if (!recipient) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -272,7 +241,7 @@ export default function NewConversationScreen() {
       </View>
     );
   }
-  
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background.dark }]}
@@ -284,20 +253,20 @@ export default function NewConversationScreen() {
         <View style={[styles.recipientContainer, { backgroundColor: colors.background.card }]}>
           <View style={styles.avatarContainer}>
             {recipient.avatar ? (
-              <View style={styles.avatar}>
-                <Text style={{ fontSize: 20, color: '#fff' }}>
-                  {recipient.fullName.charAt(0)}
-                </Text>
-              </View>
+              <Image
+                source={{ uri: recipient.avatar }}
+                style={styles.avatar}
+              />
             ) : (
-              <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                <Text style={{ fontSize: 20, color: '#000' }}>
-                  {recipient.fullName.charAt(0)}
-                </Text>
-              </View>
+              <DefaultAvatar
+                name={recipient.fullName || ''}
+                userId={recipient._id}
+                size={50}
+                style={styles.avatar}
+              />
             )}
           </View>
-          
+
           <View style={styles.recipientInfo}>
             <Text style={[styles.recipientName, { color: colors.text.primary }]}>
               {recipient.fullName}
@@ -307,7 +276,7 @@ export default function NewConversationScreen() {
             </Text>
           </View>
         </View>
-        
+
         {/* Listing Preview (if applicable) */}
         {listing && (
           <View style={[styles.listingPreview, { backgroundColor: colors.background.card }]}>
@@ -333,7 +302,7 @@ export default function NewConversationScreen() {
             </View>
           </View>
         )}
-        
+
         {/* Message Input */}
         <View style={[styles.messageContainer, { backgroundColor: colors.background.card }]}>
           <Text style={[styles.messageLabel, { color: colors.text.secondary }]}>
@@ -351,7 +320,7 @@ export default function NewConversationScreen() {
           />
         </View>
       </ScrollView>
-      
+
       <View style={[styles.footer, { backgroundColor: colors.background.darker }]}>
         <TouchableOpacity
           style={[
@@ -366,7 +335,7 @@ export default function NewConversationScreen() {
             <ActivityIndicator size="small" color="#000" />
           ) : (
             <>
-              <FontAwesome5 name="paper-plane" size={16} color="#000" style={styles.buttonIcon} />
+              <Icon name="paper-plane" size={16} color="#000" style={styles.buttonIcon} />
               <Text style={styles.buttonText}>Send Message</Text>
             </>
           )}

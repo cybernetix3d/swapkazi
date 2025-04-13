@@ -1,6 +1,7 @@
 import api, { handleApiError } from './api';
 import { User, ApiResponse, PaginatedResponse, UpdateProfileData } from '../types';
 import config from '../config';
+import * as FileSystem from 'expo-file-system';
 
 /**
  * Get user by ID
@@ -112,6 +113,60 @@ export const getNearbyUsers = async (
 /**
  * Update user profile
  */
+/**
+ * Upload avatar image
+ */
+export const uploadAvatar = async (imageUri: string): Promise<string> => {
+  try {
+    // Use mock data if enabled in config
+    if (config.enableMockData) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return 'https://example.com/avatar.jpg';
+    }
+
+    // Create form data for the image upload
+    const formData = new FormData();
+
+    // Get file info
+    const fileInfo = await FileSystem.getInfoAsync(imageUri);
+    if (!fileInfo.exists) {
+      throw new Error('File does not exist');
+    }
+
+    // Get file name and type
+    const fileNameMatch = imageUri.match(/([^/]+)$/);
+    const fileName = fileNameMatch ? fileNameMatch[1] : 'avatar.jpg';
+    const fileType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+    // Append the file to form data
+    formData.append('file', {
+      uri: imageUri,
+      name: fileName,
+      type: fileType,
+    } as any);
+
+    // Upload the image
+    const response = await api.post<ApiResponse<{ fileUrl: string }>>('/upload/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    if (!response.data.success || !response.data.fileUrl) {
+      throw new Error(response.data.message || 'Failed to upload avatar');
+    }
+
+    return response.data.fileUrl;
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Update user profile
+ */
 export const updateProfile = async (profileData: UpdateProfileData): Promise<User> => {
   try {
     // Use mock data if enabled in config
@@ -143,8 +198,20 @@ export const updateProfile = async (profileData: UpdateProfileData): Promise<Use
       };
     }
 
+    // If there's a local image URI in avatar, upload it first
+    let updatedProfileData = { ...profileData };
+    if (profileData.avatar && profileData.avatar.startsWith('file://')) {
+      try {
+        const avatarUrl = await uploadAvatar(profileData.avatar);
+        updatedProfileData.avatar = avatarUrl;
+      } catch (error) {
+        console.error('Failed to upload avatar:', error);
+        // Continue with profile update even if avatar upload fails
+      }
+    }
+
     // Real API call
-    const response = await api.put<User>('/users/profile', profileData);
+    const response = await api.put<User>('/users/profile', updatedProfileData);
 
     if (!response.data) {
       throw new Error('Failed to update profile');

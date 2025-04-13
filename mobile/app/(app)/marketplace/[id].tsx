@@ -19,6 +19,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { Listing, User } from '../../../types';
 import * as ListingService from '../../../services/listingService';
+import DefaultAvatar from '../../../components/DefaultAvatar';
 
 const { width } = Dimensions.get('window');
 
@@ -288,11 +289,12 @@ export default function ListingDetailsScreen() {
               {seller.avatar ? (
                 <Image source={{ uri: seller.avatar }} style={styles.sellerAvatar} />
               ) : (
-                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.avatarInitial}>
-                    {seller.fullName.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                <DefaultAvatar
+                  name={seller.fullName || ''}
+                  userId={seller._id}
+                  size={50}
+                  style={styles.sellerAvatar}
+                />
               )}
 
               <View>

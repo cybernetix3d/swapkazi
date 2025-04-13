@@ -137,9 +137,19 @@ const createTransaction = async (req, res) => {
 // @access  Private
 const getUserTransactions = async (req, res) => {
   try {
-    const transactions = await Transaction.find({
+    // Build filter object
+    const filter = {
       $or: [{ initiator: req.user._id }, { recipient: req.user._id }],
-    })
+    };
+
+    // Add status filter if provided
+    if (req.query.status && req.query.status !== 'All') {
+      filter.status = req.query.status;
+    }
+
+    console.log('Transaction filter:', filter);
+
+    const transactions = await Transaction.find(filter)
       .sort({ updatedAt: -1 })
       .populate('initiator', 'username fullName avatar')
       .populate('recipient', 'username fullName avatar')

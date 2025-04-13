@@ -10,27 +10,28 @@ import {
   FlatList
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import ListingCard from '../../../components/listings/ListingCard';
 import { Listing } from '../../../types';
+import DefaultAvatar from '../../../components/DefaultAvatar';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const { colors, toggleTheme } = useTheme();
   const router = useRouter();
-  
+
   const [userListings, setUserListings] = useState<Listing[]>([]);
-  
+
   // Mock data for demo purposes
   const mockRatings = [
     { id: '1', rating: 5, comment: "Great transaction! Very friendly and punctual.", user: "Mandla J." },
     { id: '2', rating: 4, comment: "Good experience, would trade again.", user: "Lerato K." },
     { id: '3', rating: 5, comment: "Excellent quality items, highly recommend!", user: "Nomsa T." },
   ];
-  
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -39,17 +40,17 @@ export default function ProfileScreen() {
       Alert.alert('Error', 'Failed to logout. Please try again.');
     }
   };
-  
+
   const handleEditProfile = () => {
     router.push('/(app)/profile/edit');
   };
-  
+
   // Render stars for ratings
   const renderStars = (rating: number) => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        <FontAwesome5
+        <Icon
           key={i}
           name="star"
           solid={i <= rating}
@@ -61,7 +62,7 @@ export default function ProfileScreen() {
     }
     return <View style={{ flexDirection: 'row' }}>{stars}</View>;
   };
-  
+
   if (!user) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.dark }]}>
@@ -71,7 +72,7 @@ export default function ProfileScreen() {
       </View>
     );
   }
-  
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background.dark }]}>
       {/* Header Section */}
@@ -79,13 +80,13 @@ export default function ProfileScreen() {
         {user.avatar ? (
           <Image source={{ uri: user.avatar }} style={styles.avatar} />
         ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
-            <Text style={styles.avatarInitial}>
-              {user.fullName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          <DefaultAvatar
+            name={user.fullName || ''}
+            userId={user._id}
+            size={100}
+          />
         )}
-        
+
         <View style={styles.userInfo}>
           <Text style={[styles.userName, { color: colors.text.primary }]}>
             {user.fullName}
@@ -93,7 +94,7 @@ export default function ProfileScreen() {
           <Text style={[styles.username, { color: colors.text.secondary }]}>
             @{user.username}
           </Text>
-          
+
           <View style={styles.ratingContainer}>
             {renderStars(user.averageRating || 0)}
             <Text style={[styles.ratingText, { color: colors.text.secondary }]}>
@@ -102,19 +103,26 @@ export default function ProfileScreen() {
           </View>
         </View>
       </View>
-      
+
       {/* Talent Balance */}
-      <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
+      <View style={[styles.balanceCard, {
+        backgroundColor: colors.primary,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 3,
+        elevation: 2
+      }]}>
         <View>
           <Text style={styles.balanceLabel}>Talent Balance</Text>
           <Text style={styles.balanceValue}>{user.talentBalance || 0}</Text>
         </View>
         <TouchableOpacity style={styles.earnMoreButton}>
           <Text style={styles.earnMoreText}>Learn how to earn more</Text>
-          <FontAwesome5 name="arrow-right" size={14} color="#000" />
+          <Icon name="arrow-right" size={14} color="#000" />
         </TouchableOpacity>
       </View>
-      
+
       {/* Skills */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Skills</Text>
@@ -123,7 +131,18 @@ export default function ProfileScreen() {
             user.skills.map((skill, index) => (
               <View
                 key={index}
-                style={[styles.skillBadge, { backgroundColor: colors.background.card }]}
+                style={[
+                  styles.skillBadge,
+                  {
+                    backgroundColor: colors.background.card,
+                    borderColor: colors.border,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 2,
+                    elevation: 1
+                  }
+                ]}
               >
                 <Text style={[styles.skillText, { color: colors.text.secondary }]}>
                   {skill}
@@ -137,7 +156,7 @@ export default function ProfileScreen() {
           )}
         </View>
       </View>
-      
+
       {/* Bio */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>About</Text>
@@ -145,7 +164,7 @@ export default function ProfileScreen() {
           {user.bio || "No bio added yet"}
         </Text>
       </View>
-      
+
       {/* Ratings & Reviews */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
@@ -176,32 +195,64 @@ export default function ProfileScreen() {
           </Text>
         )}
       </View>
-      
+
       {/* Buttons */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.accent }]}
+          style={[
+            styles.button,
+            {
+              backgroundColor: colors.accent,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+              elevation: 1
+            }
+          ]}
           onPress={handleEditProfile}
         >
-          <FontAwesome5 name="user-edit" size={16} color="#fff" />
+          <Icon name="user-edit" size={20} color="#fff" style={{marginRight: 8}} />
           <Text style={styles.buttonText}>Edit Profile</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.background.card }]}
+          style={[
+            styles.button,
+            {
+              backgroundColor: colors.background.card,
+              borderColor: colors.border,
+              borderWidth: 1,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+              elevation: 1
+            }
+          ]}
           onPress={toggleTheme}
         >
-          <FontAwesome5 name="moon" size={16} color={colors.text.primary} />
+          <Icon name="moon" size={20} color={colors.text.primary} style={{marginRight: 8}} />
           <Text style={[styles.buttonText, { color: colors.text.primary }]}>
             Toggle Theme
           </Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.error }]}
+          style={[
+            styles.button,
+            {
+              backgroundColor: colors.error,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+              elevation: 1
+            }
+          ]}
           onPress={handleLogout}
         >
-          <FontAwesome5 name="sign-out-alt" size={16} color="#fff" />
+          <Icon name="sign-out-alt" size={20} color="#fff" style={{marginRight: 8}} />
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
       </View>
@@ -305,6 +356,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.borderRadius.round,
     marginRight: SPACING.small,
     marginBottom: SPACING.small,
+    borderWidth: 1,
   },
   skillText: {
     fontSize: FONT.sizes.small,
@@ -342,6 +394,7 @@ const styles = StyleSheet.create({
     padding: SPACING.medium,
     borderRadius: SIZES.borderRadius.medium,
     marginBottom: SPACING.medium,
+    height: 50,
   },
   buttonText: {
     fontSize: FONT.sizes.medium,

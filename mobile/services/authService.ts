@@ -159,8 +159,24 @@ export const updateProfile = async (data: Partial<User>, token: string): Promise
       return user;
     }
 
+    // Handle avatar upload if it's a local file URI
+    let updatedData = { ...data };
+    if (data.avatar && data.avatar.startsWith('file://')) {
+      try {
+        // Import the userService to use the uploadAvatar function
+        const { uploadAvatar } = require('./userService');
+        const avatarUrl = await uploadAvatar(data.avatar);
+        updatedData.avatar = avatarUrl;
+      } catch (error) {
+        console.error('Failed to upload avatar:', error);
+        // Continue with profile update even if avatar upload fails
+        // Remove the avatar field to prevent sending a local URI to the server
+        delete updatedData.avatar;
+      }
+    }
+
     // Real API call
-    const response = await api.put<User>('/users/profile', data);
+    const response = await api.put<User>('/users/profile', updatedData);
 
     if (!response.data) {
       throw new Error('Invalid response from server');

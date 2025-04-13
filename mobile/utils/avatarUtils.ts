@@ -16,13 +16,15 @@ const AVATAR_COLORS = [
  * @returns Initials (up to 2 characters)
  */
 export const getInitials = (name: string): string => {
-  if (!name) return '?';
-  
-  const parts = name.trim().split(' ');
+  if (!name || name.trim() === '') return '?';
+
+  const parts = name.trim().split(' ').filter(part => part.length > 0);
+  if (parts.length === 0) return '?';
+
   if (parts.length === 1) {
     return parts[0].charAt(0).toUpperCase();
   }
-  
+
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
@@ -32,14 +34,14 @@ export const getInitials = (name: string): string => {
  * @returns Hex color code
  */
 export const getAvatarColor = (str: string): string => {
-  if (!str) return AVATAR_COLORS[0];
-  
+  if (!str || str.trim() === '') return AVATAR_COLORS[0];
+
   // Simple hash function to get a consistent color for the same string
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
+
   // Use the hash to pick a color
   const index = Math.abs(hash) % AVATAR_COLORS.length;
   return AVATAR_COLORS[index];
@@ -55,27 +57,27 @@ export const generateDefaultAvatar = (name: string, userId: string): string => {
   // Use a placeholder if no name is provided
   const initials = name ? getInitials(name) : '?';
   const color = getAvatarColor(userId || name || '');
-  
+
   // Create a canvas to draw the avatar
   const canvas = document.createElement('canvas');
   const size = 200; // Size of the avatar
   canvas.width = size;
   canvas.height = size;
-  
+
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
-  
+
   // Draw background
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, size, size);
-  
+
   // Draw text
   ctx.fillStyle = '#FFFFFF';
   ctx.font = 'bold 80px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(initials, size / 2, size / 2);
-  
+
   // Convert to data URL
   return canvas.toDataURL('image/png');
 };
@@ -89,7 +91,7 @@ export const getAvatarUrl = (user: { fullName?: string; _id?: string; avatar?: s
   if (user?.avatar) {
     return user.avatar;
   }
-  
+
   // For React Native, we can't use canvas directly, so return a placeholder
   // The UI will handle rendering a text-based avatar instead
   return '';

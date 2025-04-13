@@ -40,7 +40,7 @@ const users = [
     password: 'password123',
     fullName: 'Alex Smith',
     bio: 'Professional Web Developer specializing in modern frameworks and responsive design.',
-    avatar: 'https://example.com/avatars/alex.png',
+    avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
     phoneNumber: '+27 71 123 4567',
     skills: ['Web Development', 'UX/UI Design', 'App Development'],
     location: {
@@ -62,7 +62,7 @@ const users = [
     password: 'password123',
     fullName: 'Sarah Jones',
     bio: 'Experienced Graphic Designer and visual communicator with a creative edge.',
-    avatar: 'https://example.com/avatars/sarah.png',
+    avatar: 'https://randomuser.me/api/portraits/women/1.jpg',
     phoneNumber: '+27 82 234 5678',
     skills: ['Graphic Design', 'Photography', 'Digital Marketing'],
     location: {
@@ -84,7 +84,7 @@ const users = [
     password: 'password123',
     fullName: 'Michael Brown',
     bio: 'Seasoned Legal Advisor providing expert contract and business law counsel.',
-    avatar: 'https://example.com/avatars/michael.png',
+    avatar: 'https://randomuser.me/api/portraits/men/2.jpg',
     phoneNumber: '+27 73 345 6789',
     skills: ['Legal Consultation', 'Business Consulting', 'Negotiation'],
     location: {
@@ -106,7 +106,7 @@ const users = [
     password: 'password123',
     fullName: 'Emily Davis',
     bio: 'Digital Marketing Strategist with a passion for boosting online presence and growth.',
-    avatar: 'https://example.com/avatars/emily.png',
+    avatar: 'https://randomuser.me/api/portraits/women/2.jpg',
     phoneNumber: '+27 81 456 7890',
     skills: ['Digital Marketing', 'SEO', 'Content Strategy'],
     location: {
@@ -128,7 +128,7 @@ const users = [
     password: 'password123',
     fullName: 'Daniel Wilson',
     bio: 'Experienced Photographer capturing business moments and creative visuals.',
-    avatar: 'https://example.com/avatars/daniel.png',
+    avatar: 'https://randomuser.me/api/portraits/men/3.jpg',
     phoneNumber: '+27 74 567 8901',
     skills: ['Photography', 'Graphic Design', 'Video Editing'],
     location: {
@@ -150,7 +150,7 @@ const users = [
     password: 'password123',
     fullName: 'Olivia Taylor',
     bio: 'Professional Tutor and educational consultant with a commitment to student success.',
-    avatar: 'https://example.com/avatars/olivia.png',
+    avatar: 'https://randomuser.me/api/portraits/women/3.jpg',
     phoneNumber: '+27 65 678 9012',
     skills: ['Tutoring', 'Education', 'Public Speaking'],
     location: {
@@ -172,7 +172,7 @@ const users = [
     password: 'password123',
     fullName: 'James Martin',
     bio: 'Business Consultant with expertise in strategy, operations, and financial planning.',
-    avatar: 'https://example.com/avatars/james.png',
+    avatar: 'https://randomuser.me/api/portraits/men/4.jpg',
     phoneNumber: '+27 76 789 0123',
     skills: ['Business Consulting', 'Project Management', 'Finance'],
     location: {
@@ -216,7 +216,7 @@ const users = [
     password: 'password123',
     fullName: 'Robert Thomas',
     bio: 'Expert Event Planner ensuring every event is executed flawlessly.',
-    avatar: 'https://example.com/avatars/robert.png',
+    avatar: 'https://randomuser.me/api/portraits/men/9.jpg',
     phoneNumber: '+27 63 901 2345',
     skills: ['Event Planning', 'Logistics', 'Project Coordination'],
     location: {
@@ -238,7 +238,7 @@ const users = [
     password: 'password123',
     fullName: 'Laura Baker',
     bio: 'Copywriter and Content Creator with a flair for engaging storytelling.',
-    avatar: 'https://example.com/avatars/laura.png',
+    avatar: 'https://randomuser.me/api/portraits/women/2.jpg',
     phoneNumber: '+27 64 012 3456',
     skills: ['Copywriting', 'Content Strategy', 'Social Media Management'],
     location: {
@@ -260,7 +260,7 @@ const users = [
     password: 'password123',
     fullName: 'David Lee',
     bio: 'Skilled App Developer building modern, scalable digital solutions.',
-    avatar: 'https://example.com/avatars/david.png',
+    avatar: 'https://randomuser.me/api/portraits/men/5.jpg',
     phoneNumber: '+27 78 123 9876',
     skills: ['App Development', 'Web Development', 'UX/UI Design'],
     location: {
@@ -370,7 +370,7 @@ const users = [
     password: 'password123',
     fullName: 'Kevin Moore',
     bio: 'Innovative Digital Marketer with a focus on social media strategy and online growth.',
-    avatar: 'https://example.com/avatars/kevin.png',
+    avatar: 'https://randomuser.me/api/portraits/men/6.jpg',
     phoneNumber: '+27 72 111 2222',
     skills: ['Digital Marketing', 'Social Media Management', 'SEO'],
     location: {
@@ -414,7 +414,7 @@ const users = [
     password: 'password123',
     fullName: 'Joshua Allen',
     bio: 'Seasoned Project Manager and Business Consultant focused on strategic growth.',
-    avatar: 'https://example.com/avatars/joshua.png',
+    avatar: 'https://randomuser.me/api/portraits/men/7.jpg',
     phoneNumber: '+27 71 333 4444',
     skills: ['Project Management', 'Business Consulting', 'Strategy'],
     location: {
@@ -458,7 +458,7 @@ const users = [
     password: 'password123',
     fullName: 'Brian Adams',
     bio: 'Skilled Event Planner and Logistics Expert ensuring flawless event execution.',
-    avatar: 'https://example.com/avatars/brian.png',
+    avatar: 'https://randomuser.me/api/portraits/men/8.jpg',
     phoneNumber: '+27 74 555 6666',
     skills: ['Event Planning', 'Logistics', 'Vendor Management'],
     location: {

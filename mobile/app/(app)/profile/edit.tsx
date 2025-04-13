@@ -13,13 +13,14 @@ import {
   Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Icon from '../../../components/ui/Icon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { UpdateProfileData } from '../../../types';
 import * as ImagePicker from 'expo-image-picker';
 import * as userService from '../../../services/userService';
+import DefaultAvatar from '../../../components/DefaultAvatar';
 
 export default function EditProfileScreen() {
   // Hide the bottom tab bar for this screen
@@ -98,33 +99,19 @@ export default function EditProfileScreen() {
         // Upload image
         setImageUploading(true);
 
-        // In a real app, you would upload the image to your server here
-        // For now, we'll just simulate an upload delay and use the local URI
-        setTimeout(() => {
+        try {
+          // Set the local URI immediately for preview
           setFormData(prev => ({ ...prev, avatar: selectedImage.uri }));
+
+          // The actual upload will happen when the user saves the profile
+          // The userService.updateProfile function will handle uploading the image
+          // before updating the profile
+        } catch (error) {
+          console.error('Error handling image:', error);
+          Alert.alert('Error', 'Failed to process image. Please try again.');
+        } finally {
           setImageUploading(false);
-        }, 1000);
-
-        // Example of how you would upload to your server:
-        /*
-        const formData = new FormData();
-        formData.append('file', {
-          uri: selectedImage.uri,
-          name: 'avatar.jpg',
-          type: 'image/jpeg',
-        });
-
-        const response = await fetch('YOUR_UPLOAD_ENDPOINT', {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-
-        const data = await response.json();
-        setFormData(prev => ({ ...prev, avatar: data.fileUrl }));
-        */
+        }
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -189,11 +176,11 @@ export default function EditProfileScreen() {
           ) : formData.avatar ? (
             <Image source={{ uri: formData.avatar }} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
-              <Text style={styles.avatarInitial}>
-                {formData.fullName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
+            <DefaultAvatar
+              name={formData.fullName || ''}
+              userId={user._id}
+              size={100}
+            />
           )}
 
           <TouchableOpacity
@@ -201,7 +188,7 @@ export default function EditProfileScreen() {
             onPress={handlePickImage}
             disabled={imageUploading}
           >
-            <FontAwesome5 name="camera" size={16} color="#fff" />
+            <Icon name="camera" size={16} color="#fff" />
             <Text style={styles.changeAvatarText}>
               {imageUploading ? 'Uploading...' : 'Change Photo'}
             </Text>
@@ -274,7 +261,7 @@ export default function EditProfileScreen() {
                 style={[styles.addSkillButton, { backgroundColor: colors.primary }]}
                 onPress={handleAddSkill}
               >
-                <FontAwesome5 name="plus" size={16} color="#fff" />
+                <Icon name="plus" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
 
@@ -292,7 +279,7 @@ export default function EditProfileScreen() {
                       style={styles.removeSkillButton}
                       onPress={() => handleRemoveSkill(skill)}
                     >
-                      <FontAwesome5 name="times" size={12} color={colors.text.muted} />
+                      <Icon name="times" size={12} color={colors.text.muted} />
                     </TouchableOpacity>
                   </View>
                 ))
@@ -316,7 +303,7 @@ export default function EditProfileScreen() {
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <FontAwesome5 name="save" size={16} color="#fff" />
+                <Icon name="save" size={16} color="#fff" />
                 <Text style={styles.buttonText}>Save Changes</Text>
               </>
             )}
@@ -327,7 +314,7 @@ export default function EditProfileScreen() {
             onPress={() => router.back()}
             disabled={isLoading}
           >
-            <FontAwesome5 name="times" size={16} color={colors.text.primary} />
+            <Icon name="times" size={16} color={colors.text.primary} />
             <Text style={[styles.buttonText, { color: colors.text.primary }]}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -340,6 +327,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: SPACING.medium,
+  },
+  title: {
+    fontSize: FONT.sizes.large,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    padding: SPACING.large,
   },
   avatarSection: {
     alignItems: 'center',

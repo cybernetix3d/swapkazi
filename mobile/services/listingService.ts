@@ -1164,7 +1164,7 @@ export const searchListings = async (query: string, category?: string, exchangeT
 /**
  * Upload listing image
  */
-export const uploadListingImage = async (imageData: string): Promise<{ url: string }> => {
+export const uploadListingImage = async (imageUri: string): Promise<string> => {
   try {
     console.log('Uploading image...');
     // Use mock data if enabled in config
@@ -1172,24 +1172,42 @@ export const uploadListingImage = async (imageData: string): Promise<{ url: stri
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      return {
-        url: 'https://via.placeholder.com/400'
-      };
+      return 'https://via.placeholder.com/400';
     }
 
-    // Real API call - send base64 image data
-    const response = await api.post<ApiResponse<{ url: string }>>('/listings/upload', {
-      image: imageData
+    // Create form data for the image upload
+    const formData = new FormData();
+
+    // Get file name and type
+    const fileNameMatch = imageUri.match(/([^/]+)$/);
+    const fileName = fileNameMatch ? fileNameMatch[1] : 'listing.jpg';
+    const fileType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+    // Append the file to form data
+    formData.append('file', {
+      uri: imageUri,
+      name: fileName,
+      type: fileType,
+    } as any);
+
+    console.log('Uploading image with FormData');
+
+    // Upload the image using the proper endpoint
+    const response = await api.post<ApiResponse<{ fileUrl: string }>>('/upload/listing', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
 
     console.log('Image upload response:', response.data);
 
-    if (!response.data.success || !response.data.data) {
+    if (!response.data.success || !response.data.fileUrl) {
       throw new Error(response.data.message || 'Failed to upload image');
     }
 
-    return response.data.data;
+    return response.data.fileUrl;
   } catch (error) {
+    console.error('Error uploading image:', error);
     throw new Error(handleApiError(error));
   }
 };

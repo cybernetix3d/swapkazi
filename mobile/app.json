@@ -65,6 +65,9 @@
       },
       {
         "asset": "./assets/fonts/FontAwesome6_Solid.ttf"
+      },
+      {
+        "asset": "./assets/fonts/Ionicons.ttf"
       }
     ]
   }
