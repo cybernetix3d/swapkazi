@@ -11,7 +11,9 @@ import {
   Platform,
   ActivityIndicator,
   SafeAreaView,
+  Image,
 } from 'react-native';
+import DefaultAvatar from '../../../components/DefaultAvatar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Icon from '../../../components/ui/Icon';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -387,6 +389,7 @@ const styles = StyleSheet.create({
   messageContainer: {
     marginBottom: SPACING.medium,
     flexDirection: 'row',
+    alignItems: 'flex-end',
   },
   userMessageContainer: {
     justifyContent: 'flex-end',
@@ -394,16 +397,32 @@ const styles = StyleSheet.create({
   otherMessageContainer: {
     justifyContent: 'flex-start',
   },
+  avatarContainer: {
+    width: 36,
+    height: 36,
+    marginHorizontal: SPACING.xs,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
   messageBubble: {
-    maxWidth: '75%',
+    maxWidth: '65%',
     padding: SPACING.medium,
     borderRadius: SIZES.borderRadius.medium,
+    marginHorizontal: SPACING.xs,
   },
   userMessageBubble: {
     borderBottomRightRadius: 4,
   },
   otherMessageBubble: {
     borderBottomLeftRadius: 4,
+  },
+  senderName: {
+    fontSize: FONT.sizes.small,
+    fontWeight: 'bold',
+    marginBottom: SPACING.xs,
   },
   messageText: {
     fontSize: FONT.sizes.medium,

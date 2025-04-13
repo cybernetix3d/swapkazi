@@ -292,6 +292,15 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
+        {/* Change Password Button */}
+        <TouchableOpacity
+          style={[styles.changePasswordButton, { borderColor: colors.border }]}
+          onPress={() => router.push('/profile/change-password')}
+        >
+          <Icon name="lock" size={18} color={colors.text.primary} style={styles.changePasswordIcon} />
+          <Text style={[styles.changePasswordText, { color: colors.text.primary }]}>Change Password</Text>
+        </TouchableOpacity>
+
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -464,5 +473,21 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: FONT.sizes.medium,
     fontStyle: 'italic',
+  },
+  changePasswordButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.medium,
+    borderWidth: 1,
+    borderRadius: SIZES.borderRadius.medium,
+    marginBottom: SPACING.large,
+  },
+  changePasswordIcon: {
+    marginRight: SPACING.small,
+  },
+  changePasswordText: {
+    fontSize: FONT.sizes.medium,
+    fontWeight: '500',
   },
 });
