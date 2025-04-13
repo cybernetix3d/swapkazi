@@ -292,14 +292,6 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
-        {/* Change Password Button */}
-        <TouchableOpacity
-          style={[styles.changePasswordButton, { borderColor: colors.border }]}
-          onPress={() => router.push('/profile/change-password')}
-        >
-          <Icon name="lock" size={18} color={colors.text.primary} style={styles.changePasswordIcon} />
-          <Text style={[styles.changePasswordText, { color: colors.text.primary }]}>Change Password</Text>
-        </TouchableOpacity>
 
         {/* Buttons */}
         <View style={styles.buttonContainer}>
@@ -319,6 +311,14 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.secondary }]}
+            onPress={() => router.push('/profile/change-password')}
+          >
+            <Icon name="lock" size={18} color={colors.text.primary} style={styles.changePasswordIcon} />
+            <Text style={[styles.changePasswordText, { color: colors.text.primary }]}>Change Password</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.background.card }]}
             onPress={() => router.back()}
             disabled={isLoading}
@@ -326,6 +326,9 @@ export default function EditProfileScreen() {
             <Icon name="times" size={16} color={colors.text.primary} />
             <Text style={[styles.buttonText, { color: colors.text.primary }]}>Cancel</Text>
           </TouchableOpacity>
+
+          
+
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

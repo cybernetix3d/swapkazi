@@ -56,6 +56,16 @@ export default function AppLayout() {
       />
 
       <Tabs.Screen
+        name="community/index"
+        options={{
+          title: 'Community',
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="users" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="messages/index"
         options={{
           title: 'Messages',
@@ -84,6 +94,15 @@ export default function AppLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="profile/change-password"
+        options={{
+          href: null,  // This prevents the tab from showing in the tab bar, but allows it to be accessed via the URL
+        }}
+      />
+
+
 
       <Tabs.Screen
         name="messages/[id]"
@@ -148,6 +167,48 @@ export default function AppLayout() {
       {/* Hide filters screen from tab bar */}
       <Tabs.Screen
         name="marketplace/filters"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' }
+        }}
+      />
+
+      {/* Featured Listings */}
+      <Tabs.Screen
+        name="featured/index"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' }
+        }}
+      />
+
+      {/* Community Pages */}
+      <Tabs.Screen
+        name="community/people"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' }
+        }}
+      />
+
+      <Tabs.Screen
+        name="community/forums"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' }
+        }}
+      />
+
+      <Tabs.Screen
+        name="community/forum/[id]"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' }
+        }}
+      />
+
+      <Tabs.Screen
+        name="community/guidelines"
         options={{
           href: null,
           tabBarStyle: { display: 'none' }

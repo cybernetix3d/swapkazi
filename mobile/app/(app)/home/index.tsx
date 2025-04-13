@@ -198,7 +198,7 @@ export default function HomeScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
             Featured Listings
           </Text>
-          <TouchableOpacity onPress={() => router.push('/(app)/marketplace')}>
+          <TouchableOpacity onPress={() => router.push('/(app)/featured')}>
             <Text style={[styles.seeAll, { color: colors.accent }]}>
               See All
             </Text>
@@ -270,7 +270,7 @@ export default function HomeScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
             People Nearby
           </Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(app)/community/people')}>
             <Text style={[styles.seeAll, { color: colors.accent }]}>
               See All
             </Text>
