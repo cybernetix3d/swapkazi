@@ -35,10 +35,11 @@ export const getUserById = async (id: string): Promise<User> => {
     }
 
     // Real API call
-    const response = await api.get<ApiResponse<User>>(`/users/${id}`);
+    const response = await api.get<{ success: boolean, data: User }>(`/users/${id}`);
 
+    // The server returns { success: true, data: User }
     if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.message || 'Failed to fetch user');
+      throw new Error('Failed to fetch user');
     }
 
     return response.data.data;
@@ -91,7 +92,7 @@ export const getNearbyUsers = async (
     }
 
     // Real API call
-    const response = await api.get<PaginatedResponse<User>>('/users/nearby', {
+    const response = await api.get<User[]>('/users/nearby', {
       params: {
         longitude,
         latitude,
@@ -100,11 +101,20 @@ export const getNearbyUsers = async (
       }
     });
 
-    if (!response.data.success) {
-      throw new Error(response.data.message || 'Failed to fetch nearby users');
+    // Check if the response is already in the expected format
+    if (response.data && typeof response.data === 'object' && 'success' in response.data) {
+      return response.data;
     }
 
-    return response.data;
+    // If not, create a paginated response from the array
+    return {
+      success: true,
+      data: Array.isArray(response.data) ? response.data : [],
+      count: Array.isArray(response.data) ? response.data.length : 0,
+      total: Array.isArray(response.data) ? response.data.length : 0,
+      page: 1,
+      totalPages: 1
+    };
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -153,15 +163,17 @@ export const getUsers = async (searchQuery?: string): Promise<User[]> => {
     }
 
     // Real API call
-    const response = await api.get<ApiResponse<User[]>>('/users', {
+    const response = await api.get<User[]>('/users', {
       params: searchQuery ? { search: searchQuery } : {}
     });
 
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.message || 'Failed to fetch users');
+    // Check if the response is already in the expected format
+    if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
+      return response.data.data;
     }
 
-    return response.data.data;
+    // If the server returns the users array directly
+    return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     throw new Error(handleApiError(error));
   }

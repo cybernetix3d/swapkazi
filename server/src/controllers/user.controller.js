@@ -6,10 +6,13 @@ const User = require('../models/user.model');
 const getUsers = async (req, res) => {
   try {
     const users = await User.find().select('-password');
-    res.json(users);
+    res.json({
+      success: true,
+      data: users
+    });
   } catch (error) {
     console.error('Get users error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -31,7 +34,7 @@ const getUserById = async (req, res) => {
     }
   } catch (error) {
     console.error('Get user by ID error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -43,7 +46,7 @@ const updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     // Update fields if provided in request body
@@ -71,21 +74,24 @@ const updateUserProfile = async (req, res) => {
     const updatedUser = await user.save();
 
     res.json({
-      _id: updatedUser._id,
-      username: updatedUser.username,
-      email: updatedUser.email,
-      fullName: updatedUser.fullName,
-      bio: updatedUser.bio,
-      avatar: updatedUser.avatar,
-      phoneNumber: updatedUser.phoneNumber,
-      skills: updatedUser.skills,
-      location: updatedUser.location,
-      talentBalance: updatedUser.talentBalance,
-      averageRating: updatedUser.averageRating,
+      success: true,
+      data: {
+        _id: updatedUser._id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        bio: updatedUser.bio,
+        avatar: updatedUser.avatar,
+        phoneNumber: updatedUser.phoneNumber,
+        skills: updatedUser.skills,
+        location: updatedUser.location,
+        talentBalance: updatedUser.talentBalance,
+        averageRating: updatedUser.averageRating,
+      }
     });
   } catch (error) {
     console.error('Update user profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -97,7 +103,7 @@ const getNearbyUsers = async (req, res) => {
     const { longitude, latitude, distance = 10000 } = req.query; // distance in meters, default 10km
 
     if (!longitude || !latitude) {
-      return res.status(400).json({ message: 'Longitude and latitude are required' });
+      return res.status(400).json({ success: false, message: 'Longitude and latitude are required' });
     }
 
     const users = await User.find({
@@ -124,7 +130,7 @@ const getNearbyUsers = async (req, res) => {
     });
   } catch (error) {
     console.error('Get nearby users error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -235,6 +241,41 @@ const searchUsers = async (req, res) => {
   }
 };
 
+// @desc    Change user password
+// @route   PUT /api/users/password
+// @access  Private
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+
+    // Find user
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if current password is correct
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getUsers,
   getUserById,
@@ -243,4 +284,5 @@ module.exports = {
   rateUser,
   getTalentBalance,
   searchUsers,
+  changePassword,
 };

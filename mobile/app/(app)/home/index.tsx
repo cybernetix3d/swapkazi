@@ -206,7 +206,7 @@ export default function HomeScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {featuredListings.map((item) => (
+          {Array.isArray(featuredListings) ? featuredListings.map((item) => (
             <TouchableOpacity
               key={item._id}
               style={[
@@ -236,31 +236,54 @@ export default function HomeScreen() {
                     ✦ {item.talentPrice}
                   </Text>
                   <View style={styles.userInfo}>
-                    {typeof item.user === 'string' ? (
-                      <DefaultAvatar
-                        name="User"
-                        userId={item.user}
-                        size={24}
-                        style={styles.userAvatar}
-                      />
-                    ) : item.user.avatar ? (
-                      <Image source={{ uri: item.user.avatar }} style={styles.userAvatar} />
+                    {!item.user ? (
+                      <>
+                        <DefaultAvatar
+                          name="User"
+                          userId="unknown"
+                          size={24}
+                          style={styles.userAvatar}
+                        />
+                        <Text style={[styles.userName, { color: colors.text.secondary }]}>
+                          Unknown User
+                        </Text>
+                      </>
+                    ) : typeof item.user === 'string' ? (
+                      <>
+                        <DefaultAvatar
+                          name="User"
+                          userId={item.user}
+                          size={24}
+                          style={styles.userAvatar}
+                        />
+                        <Text style={[styles.userName, { color: colors.text.secondary }]}>
+                          User
+                        </Text>
+                      </>
                     ) : (
-                      <DefaultAvatar
-                        name={item.user.fullName || item.user.username || 'User'}
-                        userId={item.user._id}
-                        size={24}
-                        style={styles.userAvatar}
-                      />
+                      <>
+                        {item.user.avatar ? (
+                          <Image source={{ uri: item.user.avatar }} style={styles.userAvatar} />
+                        ) : (
+                          <DefaultAvatar
+                            name={item.user.fullName || item.user.username || 'User'}
+                            userId={item.user._id}
+                            size={24}
+                            style={styles.userAvatar}
+                          />
+                        )}
+                        <Text style={[styles.userName, { color: colors.text.secondary }]}>
+                          {item.user.fullName || item.user.username || 'User'}
+                        </Text>
+                      </>
                     )}
-                    <Text style={[styles.userName, { color: colors.text.secondary }]}>
-                      {typeof item.user === 'string' ? 'User' : (item.user.fullName || item.user.username)}
-                    </Text>
                   </View>
                 </View>
               </View>
             </TouchableOpacity>
-          ))}
+          )) : (
+            <Text style={[styles.emptyText, { color: colors.text.secondary }]}>No featured listings available</Text>
+          )}
         </ScrollView>
       </View>
 
@@ -278,7 +301,7 @@ export default function HomeScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {nearbyUsers.map((user) => (
+          {Array.isArray(nearbyUsers) ? nearbyUsers.map((user) => (
             <TouchableOpacity
               key={user._id}
               style={[
@@ -309,7 +332,7 @@ export default function HomeScreen() {
                 {user.fullName || user.username}
               </Text>
               <Text style={[styles.userCardSkills, { color: colors.text.secondary }]}>
-                {user.skills.join(', ')}
+                {user.skills && Array.isArray(user.skills) ? user.skills.join(', ') : 'No skills listed'}
               </Text>
               <View style={[styles.distance, { backgroundColor: colors.background.dark }]}>
                 <Icon name="map-marker-alt" size={12} color={colors.primary} />
@@ -318,7 +341,9 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-          ))}
+          )) : (
+            <Text style={[styles.emptyText, { color: colors.text.secondary }]}>No users found nearby</Text>
+          )}
         </ScrollView>
       </View>
 
@@ -518,5 +543,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: FONT.sizes.medium,
     textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: FONT.sizes.medium,
+    textAlign: 'center',
+    padding: SPACING.medium,
+    fontStyle: 'italic',
   },
 });

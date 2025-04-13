@@ -20,19 +20,19 @@ export default function Login() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  
+
   const router = useRouter();
   const { login } = useAuth();
   const { colors } = useTheme();
-  
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const success = await login(email, password);
       if (success) {
@@ -50,7 +50,7 @@ export default function Login() {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -59,10 +59,10 @@ export default function Login() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.logoContainer}>
           {/* Placeholder for logo - we'll add an actual image later */}
-          <View 
+          <View
             style={[
-              styles.logo, 
-              { 
+              styles.logo,
+              {
                 backgroundColor: colors.primary,
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -75,12 +75,12 @@ export default function Login() {
             </Text>
           </View>
         </View>
-        
+
         <Text style={[styles.title, { color: colors.text.primary }]}>Welcome to SwopKasi</Text>
         <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
           Township barter made easy
         </Text>
-        
+
         <View style={styles.form}>
           <View style={[styles.inputContainer, { backgroundColor: colors.background.card }]}>
             <TextInput
@@ -93,7 +93,7 @@ export default function Login() {
               keyboardType="email-address"
             />
           </View>
-          
+
           <View style={[styles.inputContainer, { backgroundColor: colors.background.card }]}>
             <TextInput
               style={[styles.input, { color: colors.text.primary }]}
@@ -104,7 +104,16 @@ export default function Login() {
               secureTextEntry
             />
           </View>
-          
+
+          <TouchableOpacity
+            style={styles.forgotPasswordContainer}
+            onPress={() => router.push('/forgot-password')}
+          >
+            <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>
+              Forgot Password?
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.primary }]}
             onPress={handleLogin}
@@ -114,7 +123,7 @@ export default function Login() {
               {isSubmitting ? 'Logging in...' : 'Login'}
             </Text>
           </TouchableOpacity>
-          
+
           <View style={styles.linkContainer}>
             <Text style={[styles.linkText, { color: colors.text.secondary }]}>
               Don't have an account?{' '}
@@ -196,5 +205,14 @@ const styles = StyleSheet.create({
   link: {
     fontSize: FONT.sizes.medium,
     fontWeight: 'bold',
+  },
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: SPACING.large,
+    padding: SPACING.small,
+  },
+  forgotPasswordText: {
+    fontSize: FONT.sizes.small,
+    fontWeight: '500',
   },
 });

@@ -1,7 +1,7 @@
 // Environment configuration
 const ENV = {
   dev: {
-    apiUrl: 'http://192.168.1.224:5000/api', // Use your computer's IP address for physical devices
+    apiUrl: 'http://localhost:5000/api', // Use localhost for development
     enableMockData: false, // Using real API data
   },
   staging: {

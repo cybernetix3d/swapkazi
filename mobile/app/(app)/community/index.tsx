@@ -82,98 +82,108 @@ export default function CommunityScreen() {
       setError(null);
       setLoading(true);
 
-      // Use mock data instead of API call
-      // This data is based on server/src/utils/seedData.js
-      const mockUsers: User[] = [
-        {
-          _id: 'user1',
-          username: 'alexsmith',
-          email: 'alex.smith@example.com',
-          fullName: 'Alex Smith',
-          bio: 'Professional Web Developer specializing in modern frameworks and responsive design.',
-          avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
-          phoneNumber: '+27 71 123 4567',
-          skills: ['Web Development', 'UX/UI Design', 'App Development'],
-          location: {
-            type: 'Point',
-            coordinates: [18.4241, -33.9249],
-            address: 'Cape Town CBD, Cape Town, South Africa'
-          },
-          talentBalance: 100,
-          ratings: [],
-          averageRating: 4.5,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          _id: 'user2',
-          username: 'sarahjohnson',
-          email: 'sarah.johnson@example.com',
-          fullName: 'Sarah Johnson',
-          bio: 'Graphic designer with 5+ years of experience in branding and digital design.',
-          avatar: 'https://randomuser.me/api/portraits/women/2.jpg',
-          phoneNumber: '+27 82 234 5678',
-          skills: ['Graphic Design', 'Illustration', 'Branding'],
-          location: {
-            type: 'Point',
-            coordinates: [18.4241, -33.9249],
-            address: 'Woodstock, Cape Town, South Africa'
-          },
-          talentBalance: 85,
-          ratings: [],
-          averageRating: 4.8,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          _id: 'user3',
-          username: 'michaelbrown',
-          email: 'michael.brown@example.com',
-          fullName: 'Michael Brown',
-          bio: 'Mobile app developer specializing in React Native and Flutter.',
-          avatar: 'https://randomuser.me/api/portraits/men/3.jpg',
-          phoneNumber: '+27 73 345 6789',
-          skills: ['Mobile Development', 'React Native', 'Flutter'],
-          location: {
-            type: 'Point',
-            coordinates: [18.4241, -33.9249],
-            address: 'Observatory, Cape Town, South Africa'
-          },
-          talentBalance: 120,
-          ratings: [],
-          averageRating: 4.2,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          _id: 'user4',
-          username: 'emilydavis',
-          email: 'emily.davis@example.com',
-          fullName: 'Emily Davis',
-          bio: 'Content writer and copywriter with expertise in SEO and digital marketing.',
-          avatar: 'https://randomuser.me/api/portraits/women/4.jpg',
-          phoneNumber: '+27 84 456 7890',
-          skills: ['Content Writing', 'Copywriting', 'Editing'],
-          location: {
-            type: 'Point',
-            coordinates: [18.4241, -33.9249],
-            address: 'Green Point, Cape Town, South Africa'
-          },
-          talentBalance: 75,
-          ratings: [],
-          averageRating: 4.6,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
+      // Try to get users from the API
+      try {
+        // In a real app, we would filter by location/distance
+        const users = await UserService.getUsers();
 
-      setNearbyUsers(mockUsers);
+        // For now, just show the first 4 users
+        setNearbyUsers(users.slice(0, 4));
+      } catch (apiError) {
+        console.error('API Error fetching users:', apiError);
+
+        // Fallback to mock data if API fails
+        const mockUsers: User[] = [
+          {
+            _id: 'user1',
+            username: 'alexsmith',
+            email: 'alex.smith@example.com',
+            fullName: 'Alex Smith',
+            bio: 'Professional Web Developer specializing in modern frameworks and responsive design.',
+            avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
+            phoneNumber: '+27 71 123 4567',
+            skills: ['Web Development', 'UX/UI Design', 'App Development'],
+            location: {
+              type: 'Point',
+              coordinates: [18.4241, -33.9249],
+              address: 'Cape Town CBD, Cape Town, South Africa'
+            },
+            talentBalance: 100,
+            ratings: [],
+            averageRating: 4.5,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          {
+            _id: 'user2',
+            username: 'sarahjohnson',
+            email: 'sarah.johnson@example.com',
+            fullName: 'Sarah Johnson',
+            bio: 'Graphic designer with 5+ years of experience in branding and digital design.',
+            avatar: 'https://randomuser.me/api/portraits/women/2.jpg',
+            phoneNumber: '+27 82 234 5678',
+            skills: ['Graphic Design', 'Illustration', 'Branding'],
+            location: {
+              type: 'Point',
+              coordinates: [18.4241, -33.9249],
+              address: 'Woodstock, Cape Town, South Africa'
+            },
+            talentBalance: 85,
+            ratings: [],
+            averageRating: 4.8,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          {
+            _id: 'user3',
+            username: 'michaelbrown',
+            email: 'michael.brown@example.com',
+            fullName: 'Michael Brown',
+            bio: 'Mobile app developer specializing in React Native and Flutter.',
+            avatar: 'https://randomuser.me/api/portraits/men/3.jpg',
+            phoneNumber: '+27 73 345 6789',
+            skills: ['Mobile Development', 'React Native', 'Flutter'],
+            location: {
+              type: 'Point',
+              coordinates: [18.4241, -33.9249],
+              address: 'Observatory, Cape Town, South Africa'
+            },
+            talentBalance: 120,
+            ratings: [],
+            averageRating: 4.2,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          {
+            _id: 'user4',
+            username: 'emilydavis',
+            email: 'emily.davis@example.com',
+            fullName: 'Emily Davis',
+            bio: 'Content writer and copywriter with expertise in SEO and digital marketing.',
+            avatar: 'https://randomuser.me/api/portraits/women/4.jpg',
+            phoneNumber: '+27 84 456 7890',
+            skills: ['Content Writing', 'Copywriting', 'Editing'],
+            location: {
+              type: 'Point',
+              coordinates: [18.4241, -33.9249],
+              address: 'Green Point, Cape Town, South Africa'
+            },
+            talentBalance: 75,
+            ratings: [],
+            averageRating: 4.6,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        ];
+
+        setNearbyUsers(mockUsers);
+      }
     } catch (err: any) {
-      console.error('Error fetching nearby users:', err);
+      console.error('Error in fetchNearbyUsers:', err);
       setError(err.message || 'Failed to load nearby users');
     } finally {
       setLoading(false);

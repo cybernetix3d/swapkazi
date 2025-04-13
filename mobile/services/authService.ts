@@ -345,3 +345,25 @@ export const rateUser = async (userId: string, rating: number, comment?: string)
     throw new Error(handleApiError(error));
   }
 };
+
+/**
+ * Forgot password - request password reset
+ */
+export const forgotPassword = async (email: string): Promise<void> => {
+  try {
+    await api.post('/auth/forgot-password', { email });
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * Reset password with token
+ */
+export const resetPassword = async (token: string, newPassword: string): Promise<void> => {
+  try {
+    await api.post('/auth/reset-password', { token, newPassword });
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};

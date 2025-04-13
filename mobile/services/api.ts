@@ -73,8 +73,15 @@ const api = {
       return { data: {} as T };
     }
 
-    const response: AxiosResponse<T> = await axiosInstance.get(url, config);
-    return { data: response.data };
+    try {
+      console.log(`Making GET request to ${url}`);
+      const response: AxiosResponse<T> = await axiosInstance.get(url, config);
+      console.log(`Response from ${url}:`, response.data);
+      return { data: response.data };
+    } catch (error) {
+      console.error(`Error in GET request to ${url}:`, error);
+      throw error;
+    }
   },
 
   post: async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<{ data: T }> => {

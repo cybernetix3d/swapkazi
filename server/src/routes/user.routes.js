@@ -8,6 +8,7 @@ const {
   rateUser,
   getTalentBalance,
   searchUsers,
+  changePassword,
 } = require('../controllers/user.controller');
 const auth = require('../middleware/auth.middleware');
 
@@ -45,5 +46,10 @@ router.get('/:id', auth, getUserById);
 // @desc    Rate a user
 // @access  Private
 router.post('/:id/rate', auth, rateUser);
+
+// @route   PUT /api/users/password
+// @desc    Change user password
+// @access  Private
+router.put('/password', auth, changePassword);
 
 module.exports = router;
