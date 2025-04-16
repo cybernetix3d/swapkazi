@@ -7,6 +7,7 @@ const {
   sendMessage,
   getUnreadCount,
   deleteConversation,
+  markMessagesAsRead,
 } = require('../controllers/message.controller');
 const auth = require('../middleware/auth.middleware');
 
@@ -30,10 +31,15 @@ router.get('/conversations/:id', auth, getMessages);
 // @access  Private
 router.delete('/conversations/:id', auth, deleteConversation);
 
-// @route   GET /api/messages/unread
+// @route   GET /api/messages/unread/count
 // @desc    Get unread message count
 // @access  Private
-router.get('/unread', auth, getUnreadCount);
+router.get('/unread/count', auth, getUnreadCount);
+
+// @route   PUT /api/messages/conversations/:id/read
+// @desc    Mark all messages in a conversation as read
+// @access  Private
+router.put('/conversations/:id/read', auth, markMessagesAsRead);
 
 // @route   POST /api/messages
 // @desc    Send a message

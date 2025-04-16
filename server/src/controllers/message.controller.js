@@ -19,20 +19,44 @@ const getConversations = async (req, res) => {
       .sort({ updatedAt: -1 });
 
     // Format the response to be more client-friendly
-    const formattedConversations = conversations.map((conv) => {
+    const formattedConversations = await Promise.all(conversations.map(async (conv) => {
       // Find the other participant (not the current user)
       const otherParticipant = conv.participants.find(
         (p) => p._id.toString() !== req.user._id.toString()
       );
+
+      // Get unread count for this conversation
+      const unreadCount = await Message.countDocuments({
+        conversation: conv._id,
+        sender: { $ne: req.user._id },
+        'readBy.user': { $ne: req.user._id },
+      });
+
+      console.log(`Conversation ${conv._id} unread count: ${unreadCount}`);
+
+      // Get the last message content if available
+      let lastMessageContent = null;
+      let lastMessageTime = null;
+
+      if (conv.lastMessage) {
+        const message = await Message.findById(conv.lastMessage);
+        if (message) {
+          lastMessageContent = message.content;
+          lastMessageTime = message.createdAt;
+        }
+      }
 
       return {
         _id: conv._id,
         otherUser: otherParticipant,
         listing: conv.listing,
         lastMessage: conv.lastMessage,
+        lastMessageContent,
+        lastMessageTime,
         updatedAt: conv.updatedAt,
+        unreadCount,
       };
-    });
+    }));
 
     successResponse(res, formattedConversations);
   } catch (error) {
@@ -158,7 +182,9 @@ const getMessages = async (req, res) => {
       unreadMessages.map((msg) => msg.markAsRead(req.user._id))
     );
 
-    successResponse(res, messages);
+    // For backward compatibility, return the messages array directly
+    // This is what the client expects
+    return res.json(messages);
   } catch (error) {
     console.error('Get messages error:', error);
     errorResponse(res, 'Server error', 500, error);
@@ -214,7 +240,7 @@ const sendMessage = async (req, res) => {
 };
 
 // @desc    Get unread message count
-// @route   GET /api/messages/unread
+// @route   GET /api/messages/unread/count
 // @access  Private
 const getUnreadCount = async (req, res) => {
   try {
@@ -234,9 +260,51 @@ const getUnreadCount = async (req, res) => {
       'readBy.user': { $ne: req.user._id },
     });
 
-    successResponse(res, { unreadCount });
+    successResponse(res, { count: unreadCount });
   } catch (error) {
     console.error('Get unread count error:', error);
+    errorResponse(res, 'Server error', 500, error);
+  }
+};
+
+// @desc    Mark messages as read
+// @route   PUT /api/messages/conversations/:id/read
+// @access  Private
+const markMessagesAsRead = async (req, res) => {
+  try {
+    const conversationId = req.params.id;
+    const conversation = await Conversation.findById(conversationId);
+
+    if (!conversation) {
+      return errorResponse(res, 'Conversation not found', 404);
+    }
+
+    // Check if user is a participant in the conversation
+    if (!conversation.participants.includes(req.user._id)) {
+      return errorResponse(res, 'Not authorized to access this conversation', 401);
+    }
+
+    // Find all unread messages in this conversation that were not sent by the current user
+    const unreadMessages = await Message.find({
+      conversation: conversationId,
+      sender: { $ne: req.user._id },
+      'readBy.user': { $ne: req.user._id },
+    });
+
+    // Mark each message as read
+    const updatePromises = unreadMessages.map((message) => {
+      message.readBy.push({
+        user: req.user._id,
+        timestamp: Date.now(),
+      });
+      return message.save();
+    });
+
+    await Promise.all(updatePromises);
+
+    successResponse(res, { success: true, markedAsRead: unreadMessages.length });
+  } catch (error) {
+    console.error('Mark messages as read error:', error);
     errorResponse(res, 'Server error', 500, error);
   }
 };
@@ -276,4 +344,5 @@ module.exports = {
   sendMessage,
   getUnreadCount,
   deleteConversation,
+  markMessagesAsRead,
 };

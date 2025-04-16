@@ -2,12 +2,30 @@
 
 import React from 'react';
 import { Tabs } from 'expo-router';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
-import { SPACING } from '../../constants/Theme';
+import { useNotification } from '../../contexts/NotificationContext';
+import { SPACING, FONT } from '../../constants/Theme';
 import Icon from '../../components/ui/Icon';
+
+// Badge component for notifications
+const NotificationBadge = ({ count }: { count: number }) => {
+  const { colors } = useTheme();
+
+  if (count <= 0) return null;
+
+  return (
+    <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+      <Text style={styles.badgeText}>
+        {count > 99 ? '99+' : count}
+      </Text>
+    </View>
+  );
+};
 
 export default function AppLayout() {
   const { colors } = useTheme();
+  const { unreadMessageCount } = useNotification();
 
   return (
     <Tabs
@@ -70,7 +88,10 @@ export default function AppLayout() {
         options={{
           title: 'Messages',
           tabBarIcon: ({ color, size }) => (
-            <Icon name="comments" size={size} color={color} />
+            <View style={{ width: 24, height: 24 }}>
+              <Icon name="comments" size={size} color={color} />
+              {unreadMessageCount > 0 && <NotificationBadge count={unreadMessageCount} />}
+            </View>
           ),
         }}
       />
@@ -218,3 +239,22 @@ export default function AppLayout() {
 
   );
 }
+
+const styles = StyleSheet.create({
+  badge: {
+    position: 'absolute',
+    right: -6,
+    top: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#000',
+    fontSize: FONT.sizes.xs,
+    fontWeight: 'bold',
+  },
+});

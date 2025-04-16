@@ -37,6 +37,15 @@ router.get('/balance', auth, getTalentBalance);
 // @access  Private
 router.get('/search', auth, searchUsers);
 
+// @route   GET /api/users/me
+// @desc    Get current user profile
+// @access  Private
+router.get('/me', auth, (req, res) => {
+  // Forward to the getCurrentUser function from auth controller
+  const { getCurrentUser } = require('../controllers/auth.controller');
+  return getCurrentUser(req, res);
+});
+
 // @route   GET /api/users/:id
 // @desc    Get user by ID
 // @access  Private

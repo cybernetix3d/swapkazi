@@ -4,9 +4,11 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ThemeProvider } from '../contexts/ThemeContext';
+import { NotificationProvider } from '../contexts/NotificationContext';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -33,8 +35,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        <Stack screenOptions={{ headerShown: false }} /> {/* Hide ALL headers at the root level */}
+        <NotificationProvider>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <Stack screenOptions={{ headerShown: false }} /> {/* Hide ALL headers at the root level */}
+          <Toast />
+        </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );

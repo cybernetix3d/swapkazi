@@ -19,9 +19,26 @@ export const getConversations = async (): Promise<ConversationListItem[]> => {
     console.log('Conversations response:', JSON.stringify(response.data));
 
     // Get the current user ID to determine the other participant
-    const userResponse = await api.get<any>('/users/me');
-    const currentUserId = userResponse.data._id || userResponse.data.data?._id;
-    console.log('Current user ID:', currentUserId);
+    try {
+      const userResponse = await api.get<any>('/users/me');
+      let currentUserId;
+
+      if (userResponse.data._id) {
+        // Direct user object
+        currentUserId = userResponse.data._id;
+      } else if (userResponse.data.data && userResponse.data.data._id) {
+        // Wrapped in data property
+        currentUserId = userResponse.data.data._id;
+      } else {
+        console.error('Unexpected user response format:', userResponse.data);
+        throw new Error('Could not determine current user ID');
+      }
+
+      console.log('Current user ID:', currentUserId);
+    } catch (userError) {
+      console.error('Error getting current user:', userError);
+      // Continue with conversations even if we can't get the user ID
+    }
 
     // Process the conversations data
     let conversations: any[] = [];
@@ -75,29 +92,67 @@ export const getConversations = async (): Promise<ConversationListItem[]> => {
         lastMessageTime: conversation.lastMessageTime || conversation.updatedAt || conversation.createdAt
       };
 
+      // If we have otherUser directly from the server, use it
+      if (conversation.otherUser) {
+        console.log('Using otherUser from server:', conversation.otherUser);
+        conversationItem.otherParticipant = conversation.otherUser;
+      }
+
       // Find the other participant
       if (conversation.participants && Array.isArray(conversation.participants)) {
-        // If participants are full user objects
-        const otherParticipant = conversation.participants.find(p => {
-          if (typeof p === 'string') {
-            return p !== currentUserId;
-          } else if (p && typeof p === 'object' && p._id) {
-            return p._id !== currentUserId;
-          }
-          return false;
-        });
+        // Try to find the current user ID in the participants
+        let currentUserId = '';
+        try {
+          // If we have an otherUser property, the current user is the other participant
+          if (conversation.otherUser) {
+            // Find the participant that is not the otherUser
+            const currentUserParticipant = conversation.participants.find(p => {
+              if (typeof p === 'string' && conversation.otherUser && typeof conversation.otherUser === 'object') {
+                return p !== conversation.otherUser._id;
+              } else if (p && typeof p === 'object' && p._id && conversation.otherUser && typeof conversation.otherUser === 'object') {
+                return p._id !== conversation.otherUser._id;
+              }
+              return false;
+            });
 
-        if (otherParticipant) {
-          if (typeof otherParticipant === 'string') {
-            // If it's just an ID, we need to create a placeholder user
-            conversationItem.otherParticipant = {
-              ...conversationItem.otherParticipant,
-              _id: otherParticipant,
-              fullName: `User ${otherParticipant.substring(0, 5)}...`
-            };
-          } else if (otherParticipant && typeof otherParticipant === 'object') {
-            // If it's a user object, use it directly
-            conversationItem.otherParticipant = otherParticipant as User;
+            if (currentUserParticipant) {
+              currentUserId = typeof currentUserParticipant === 'string' ?
+                currentUserParticipant :
+                currentUserParticipant._id;
+            }
+          }
+        } catch (error) {
+          console.error('Error finding current user ID:', error);
+        }
+
+        // If we have an otherUser property, use it directly
+        if (conversation.otherUser && typeof conversation.otherUser === 'object') {
+          conversationItem.otherParticipant = conversation.otherUser;
+        } else {
+          // Otherwise, try to find the other participant
+          // Find any participant that is not the current user
+          const otherParticipant = conversation.participants.find(p => {
+            if (currentUserId && typeof p === 'string') {
+              return p !== currentUserId;
+            } else if (currentUserId && p && typeof p === 'object' && p._id) {
+              return p._id !== currentUserId;
+            }
+            // If we can't determine the current user, just return the first participant
+            return true;
+          });
+
+          if (otherParticipant) {
+            if (typeof otherParticipant === 'string') {
+              // If it's just an ID, we need to create a placeholder user
+              conversationItem.otherParticipant = {
+                ...conversationItem.otherParticipant,
+                _id: otherParticipant,
+                fullName: `User ${otherParticipant.substring(0, 5)}...`
+              };
+            } else if (otherParticipant && typeof otherParticipant === 'object') {
+              // If it's a user object, use it directly
+              conversationItem.otherParticipant = otherParticipant as User;
+            }
           }
         }
       }
@@ -139,46 +194,55 @@ export const getConversation = async (id: string): Promise<Conversation> => {
 
     // Handle different response formats
     if (Array.isArray(response.data)) {
-      // The server returns an empty array when the conversation doesn't exist
-      // or when there are no messages yet
-      if (response.data.length === 0) {
-        console.log('Server returned empty array, creating placeholder conversation');
-        // Return a placeholder conversation with the ID
-        return {
-          _id: id,
-          participants: [],
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-      } else {
-        // If it's a non-empty array, it might be the messages
-        console.log('Server returned array of messages instead of conversation');
-        // Return a placeholder conversation with the ID and messages
-        return {
-          _id: id,
-          participants: [],
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-      }
+      // The server returns an array of messages for this conversation
+      console.log('Server returned array of messages, creating conversation object');
+
+      // Create a conversation object with the messages
+      return {
+        _id: id,
+        participants: [],
+        messages: response.data,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
     } else if (response.data._id) {
       // Direct conversation object
       console.log('Server returned direct conversation object');
       return response.data;
-    } else if (response.data.data && response.data.data._id) {
+    } else if (response.data.data) {
       // Wrapped in data property
-      console.log('Server returned wrapped conversation object');
-      return response.data.data;
-    } else if (!response.data.success) {
-      // Error response
-      throw new Error(response.data.message || 'Failed to fetch conversation');
-    } else {
-      // Unexpected format
-      console.error('Unexpected response format:', response.data);
-      throw new Error('Invalid conversation data format in response');
+      console.log('Server returned wrapped data:', typeof response.data.data);
+
+      if (Array.isArray(response.data.data)) {
+        // It's an array of messages
+        console.log('Server returned wrapped array of messages');
+        return {
+          _id: id,
+          participants: [],
+          messages: response.data.data,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      } else if (response.data.data._id) {
+        // It's a conversation object
+        console.log('Server returned wrapped conversation object');
+        return response.data.data;
+      }
     }
+
+    // If we get here, we couldn't parse the response
+    console.error('Unexpected response format:', response.data);
+
+    // Return a placeholder conversation as a fallback
+    return {
+      _id: id,
+      participants: [],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
   } catch (error) {
     console.error('Error in getConversation:', error);
     // Return a placeholder conversation as a fallback
@@ -421,5 +485,70 @@ export const deleteConversation = async (id: string): Promise<boolean> => {
     return true;
   } catch (error) {
     throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * Get a single message by ID
+ */
+export const getMessageById = async (id: string): Promise<Message | null> => {
+  try {
+    // First try to get the message directly
+    try {
+      const response = await api.get<ApiResponse<Message>>(`/messages/${id}`);
+
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+    } catch (directError) {
+      console.log('Direct message fetch failed, trying alternative approach');
+    }
+
+    // If direct fetch fails, try to find the message in its conversation
+    // This is a fallback approach that might be less efficient
+    // First, we need to find which conversation contains this message
+    const conversationsResponse = await api.get<any>('/messages/conversations');
+
+    let conversations = [];
+    if (Array.isArray(conversationsResponse.data)) {
+      conversations = conversationsResponse.data;
+    } else if (conversationsResponse.data.data && Array.isArray(conversationsResponse.data.data)) {
+      conversations = conversationsResponse.data.data;
+    } else if (conversationsResponse.data.conversations && Array.isArray(conversationsResponse.data.conversations)) {
+      conversations = conversationsResponse.data.conversations;
+    }
+
+    // Look for a conversation with this message as the last message
+    for (const conversation of conversations) {
+      if (conversation.lastMessage === id ||
+          (conversation.lastMessage && conversation.lastMessage._id === id)) {
+        // If we found it as a lastMessage and it's an object, return it
+        if (conversation.lastMessage && typeof conversation.lastMessage === 'object') {
+          return conversation.lastMessage;
+        }
+
+        // Otherwise, get all messages for this conversation
+        const messagesResponse = await api.get<any>(`/messages/conversations/${conversation._id}`);
+
+        let messages = [];
+        if (Array.isArray(messagesResponse.data)) {
+          messages = messagesResponse.data;
+        } else if (messagesResponse.data.data && Array.isArray(messagesResponse.data.data)) {
+          messages = messagesResponse.data.data;
+        }
+
+        // Find the message with the matching ID
+        const message = messages.find(msg => msg._id === id);
+        if (message) {
+          return message;
+        }
+      }
+    }
+
+    // If we couldn't find the message, return null
+    return null;
+  } catch (error) {
+    console.error('Error in getMessageById:', error);
+    return null;
   }
 };

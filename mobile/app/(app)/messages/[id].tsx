@@ -18,6 +18,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Icon from '../../../components/ui/Icon';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useNotification } from '../../../contexts/NotificationContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { Conversation, Message, User } from '../../../types';
 
@@ -131,6 +132,7 @@ export default function ConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const { user: currentUser } = useAuth();
+  const { resetUnreadMessageCount } = useNotification();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
 
@@ -140,9 +142,108 @@ export default function ConversationScreen() {
   const [messageText, setMessageText] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
 
+  // Polling interval reference
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    fetchConversation();
+    try {
+      fetchConversation();
+
+      // Set up polling for new messages every 5 seconds
+      startPolling();
+
+      // Mark messages as read when conversation is opened
+      markMessagesAsRead();
+
+      // Clean up polling when component unmounts
+      return () => {
+        try {
+          stopPolling();
+        } catch (error) {
+          console.error('Error in cleanup function:', error);
+        }
+      };
+    } catch (error) {
+      console.error('Error in conversation effect:', error);
+    }
   }, [id]);
+
+  // Mark messages as read
+  const markMessagesAsRead = async () => {
+    try {
+      const MessageService = await import('../../../services/messageService');
+
+      try {
+        await MessageService.markMessagesAsRead(id as string);
+        // Reset unread count in notification context
+        resetUnreadMessageCount();
+      } catch (apiError) {
+        // The endpoint might not be available yet, but we still want to reset the count locally
+        console.log('Mark as read API not available yet, resetting count locally');
+        resetUnreadMessageCount();
+      }
+    } catch (error) {
+      console.error('Error importing message service:', error);
+    }
+  };
+
+  const startPolling = () => {
+    try {
+      // Clear any existing interval
+      stopPolling();
+
+      // Set up new polling interval (every 5 seconds)
+      pollingIntervalRef.current = setInterval(() => {
+        fetchNewMessages();
+      }, 5000);
+    } catch (error) {
+      console.error('Error starting polling:', error);
+    }
+  };
+
+  const stopPolling = () => {
+    try {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error stopping polling:', error);
+    }
+  };
+
+  const fetchNewMessages = async () => {
+    try {
+      // Only fetch new messages, not the whole conversation
+      const MessageService = await import('../../../services/messageService');
+      const messagesData = await MessageService.getMessages(id as string);
+
+      // Handle different message response formats
+      let newMessages: Message[] = [];
+      if (Array.isArray(messagesData)) {
+        newMessages = messagesData;
+      } else if (messagesData && typeof messagesData === 'object' && 'data' in messagesData && Array.isArray(messagesData.data)) {
+        newMessages = messagesData.data;
+      }
+
+      // Only update if we have new messages
+      if (newMessages.length > messages.length) {
+        console.log('New messages received:', newMessages.length - messages.length);
+        setMessages(newMessages);
+
+        // Mark new messages as read
+        markMessagesAsRead();
+
+        // Scroll to bottom when new messages arrive
+        if (flatListRef.current) {
+          flatListRef.current.scrollToEnd({ animated: true });
+        }
+      }
+    } catch (error) {
+      console.error('Error polling for new messages:', error);
+      // Don't stop polling on error
+    }
+  };
 
   const fetchConversation = async () => {
     setLoading(true);

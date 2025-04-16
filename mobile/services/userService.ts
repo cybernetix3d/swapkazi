@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system';
 /**
  * Get user by ID
  */
-export const getUserById = async (id: string): Promise<User> => {
+export const getUserById = async (id: string): Promise<User | null> => {
   try {
     // Use mock data if enabled in config
     if (config.enableMockData) {
@@ -34,17 +34,48 @@ export const getUserById = async (id: string): Promise<User> => {
       };
     }
 
-    // Real API call
-    const response = await api.get<{ success: boolean, data: User }>(`/users/${id}`);
+    try {
+      // Real API call
+      const response = await api.get<{ success: boolean, data: User }>(`/users/${id}`);
 
-    // The server returns { success: true, data: User }
-    if (!response.data.success || !response.data.data) {
-      throw new Error('Failed to fetch user');
+      // The server returns { success: true, data: User }
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+
+      // Try alternative response format
+      if (response.data && typeof response.data === 'object' && '_id' in response.data) {
+        return response.data as User;
+      }
+
+      console.log('User not found or invalid response format');
+      return null;
+    } catch (apiError) {
+      console.error('API error in getUserById:', apiError);
+
+      // Create a basic user object with the ID and a placeholder name
+      return {
+        _id: id,
+        username: `user_${id.substring(0, 5)}`,
+        email: '',
+        fullName: `User ${id.substring(0, 5)}...`,
+        skills: [],
+        talentBalance: 0,
+        location: {
+          type: 'Point',
+          coordinates: [0, 0],
+          address: ''
+        },
+        ratings: [],
+        averageRating: 0,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
     }
-
-    return response.data.data;
   } catch (error) {
-    throw new Error(handleApiError(error));
+    console.error('Error in getUserById:', error);
+    return null;
   }
 };
 
