@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
-  TextInput
+  TextInput,
+  Alert
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -19,10 +20,13 @@ import Icon from '../../../components/ui/Icon';
 import DefaultAvatar from '../../../components/DefaultAvatar';
 import EmptyState from '../../../components/EmptyState';
 import ErrorMessage from '../../../components/ErrorMessage';
+import { useLocation } from '../../../hooks/useLocation';
+import { DEFAULT_LOCATION } from '../../../config/maps';
 
 export default function PeopleNearbyScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { location, getLocation, loading: locationLoading } = useLocation();
 
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -31,6 +35,7 @@ export default function PeopleNearbyScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [fetchingNearbyUsers, setFetchingNearbyUsers] = useState(false);
 
   // Get unique skills from all users
   const allSkills = Array.from(
@@ -51,17 +56,65 @@ export default function PeopleNearbyScreen() {
     try {
       setError(null);
       setLoading(true);
+      setFetchingNearbyUsers(true);
 
-      // Get users from the API
-      const fetchedUsers = await UserService.getUsers();
-      setUsers(fetchedUsers);
-      setFilteredUsers(fetchedUsers);
+      // Try to get the user's current location
+      let userLocation = location;
+
+      // If we don't have a location yet, try to get it
+      if (!userLocation) {
+        try {
+          userLocation = await getLocation();
+        } catch (locationError) {
+          console.error('Error getting location:', locationError);
+          Alert.alert(
+            'Location Access',
+            'We need your location to find people nearby. Please enable location services.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+
+      // Use the user's location if available, otherwise use default location
+      const coordinates = userLocation
+        ? [userLocation.longitude, userLocation.latitude]
+        : [DEFAULT_LOCATION.longitude, DEFAULT_LOCATION.latitude];
+
+      console.log('Using coordinates for nearby users:', coordinates);
+
+      // Get nearby users from the API
+      try {
+        const nearbyUsersResponse = await UserService.getNearbyUsers(
+          coordinates[0],
+          coordinates[1],
+          10000, // 10km radius
+          20 // limit to 20 users
+        );
+
+        if (nearbyUsersResponse.success && nearbyUsersResponse.data) {
+          setUsers(nearbyUsersResponse.data);
+          setFilteredUsers(nearbyUsersResponse.data);
+        } else {
+          // Fallback to getting all users if nearby search fails
+          const fetchedUsers = await UserService.getUsers();
+          setUsers(fetchedUsers);
+          setFilteredUsers(fetchedUsers);
+        }
+      } catch (nearbyError) {
+        console.error('Error fetching nearby users:', nearbyError);
+
+        // Fallback to getting all users
+        const fetchedUsers = await UserService.getUsers();
+        setUsers(fetchedUsers);
+        setFilteredUsers(fetchedUsers);
+      }
     } catch (err: any) {
       console.error('Error fetching users:', err);
       setError(err.message || 'Failed to load users');
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setFetchingNearbyUsers(false);
     }
   };
 

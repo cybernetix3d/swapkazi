@@ -1,4 +1,5 @@
 const User = require('../models/user.model');
+const { successResponse, errorResponse, paginatedResponse } = require('../utils/responseUtils');
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -6,13 +7,10 @@ const User = require('../models/user.model');
 const getUsers = async (req, res) => {
   try {
     const users = await User.find().select('-password');
-    res.json({
-      success: true,
-      data: users
-    });
+    successResponse(res, users);
   } catch (error) {
     console.error('Get users error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -24,17 +22,13 @@ const getUserById = async (req, res) => {
     const user = await User.findById(req.params.id).select('-password');
 
     if (user) {
-      // Format response to match mobile app expectations
-      res.json({
-        success: true,
-        data: user
-      });
+      successResponse(res, user);
     } else {
-      res.status(404).json({ success: false, message: 'User not found' });
+      errorResponse(res, 'User not found', 404);
     }
   } catch (error) {
     console.error('Get user by ID error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -46,7 +40,7 @@ const updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return errorResponse(res, 'User not found', 404);
     }
 
     // Update fields if provided in request body
@@ -73,25 +67,22 @@ const updateUserProfile = async (req, res) => {
 
     const updatedUser = await user.save();
 
-    res.json({
-      success: true,
-      data: {
-        _id: updatedUser._id,
-        username: updatedUser.username,
-        email: updatedUser.email,
-        fullName: updatedUser.fullName,
-        bio: updatedUser.bio,
-        avatar: updatedUser.avatar,
-        phoneNumber: updatedUser.phoneNumber,
-        skills: updatedUser.skills,
-        location: updatedUser.location,
-        talentBalance: updatedUser.talentBalance,
-        averageRating: updatedUser.averageRating,
-      }
+    successResponse(res, {
+      _id: updatedUser._id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      fullName: updatedUser.fullName,
+      bio: updatedUser.bio,
+      avatar: updatedUser.avatar,
+      phoneNumber: updatedUser.phoneNumber,
+      skills: updatedUser.skills,
+      location: updatedUser.location,
+      talentBalance: updatedUser.talentBalance,
+      averageRating: updatedUser.averageRating,
     });
   } catch (error) {
     console.error('Update user profile error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -103,7 +94,7 @@ const getNearbyUsers = async (req, res) => {
     const { longitude, latitude, distance = 10000 } = req.query; // distance in meters, default 10km
 
     if (!longitude || !latitude) {
-      return res.status(400).json({ success: false, message: 'Longitude and latitude are required' });
+      return errorResponse(res, 'Longitude and latitude are required', 400);
     }
 
     const users = await User.find({
@@ -119,18 +110,10 @@ const getNearbyUsers = async (req, res) => {
       },
     }).select('-password');
 
-    // Format response to match mobile app expectations
-    res.json({
-      success: true,
-      data: users,
-      count: users.length,
-      total: users.length,
-      page: 1,
-      totalPages: 1
-    });
+    paginatedResponse(res, users, users.length, 1, users.length);
   } catch (error) {
     console.error('Get nearby users error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -142,18 +125,18 @@ const rateUser = async (req, res) => {
     const { rating, comment } = req.body;
 
     if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+      return errorResponse(res, 'Rating must be between 1 and 5', 400);
     }
 
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return errorResponse(res, 'User not found', 404);
     }
 
     // Check if user is trying to rate themselves
     if (user._id.toString() === req.user._id.toString()) {
-      return res.status(400).json({ message: 'You cannot rate yourself' });
+      return errorResponse(res, 'You cannot rate yourself', 400);
     }
 
     // Check if user has already rated this user
@@ -181,13 +164,13 @@ const rateUser = async (req, res) => {
 
     await user.save();
 
-    res.json({
+    successResponse(res, {
       message: 'Rating submitted successfully',
       averageRating: user.averageRating,
     });
   } catch (error) {
     console.error('Rate user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -199,13 +182,13 @@ const getTalentBalance = async (req, res) => {
     const user = await User.findById(req.user._id).select('talentBalance');
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return errorResponse(res, 'User not found', 404);
     }
 
-    res.json({ talentBalance: user.talentBalance });
+    successResponse(res, { talentBalance: user.talentBalance });
   } catch (error) {
     console.error('Get talent balance error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -234,10 +217,10 @@ const searchUsers = async (req, res) => {
 
     const users = await User.find(searchQuery).select('-password');
 
-    res.json(users);
+    successResponse(res, users);
   } catch (error) {
     console.error('Search users error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -250,29 +233,29 @@ const changePassword = async (req, res) => {
 
     // Validate input
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Current password and new password are required' });
+      return errorResponse(res, 'Current password and new password are required', 400);
     }
 
     // Find user
     const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return errorResponse(res, 'User not found', 404);
     }
 
     // Check if current password is correct
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Current password is incorrect' });
+      return errorResponse(res, 'Current password is incorrect', 400);
     }
 
     // Update password
     user.password = newPassword;
     await user.save();
 
-    res.json({ message: 'Password updated successfully' });
+    successResponse(res, { message: 'Password updated successfully' });
   } catch (error) {
     console.error('Change password error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 

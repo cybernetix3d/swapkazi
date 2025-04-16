@@ -261,17 +261,18 @@ export const uploadAvatar = async (imageUri: string): Promise<string> => {
     } as any);
 
     // Upload the image
-    const response = await api.post<ApiResponse<{ fileUrl: string }>>('/upload/avatar', formData, {
+    const response = await api.post<{success: boolean, data: { fileUrl: string }}>('/upload/avatar', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
 
-    if (!response.data.success || !response.data.fileUrl) {
-      throw new Error(response.data.message || 'Failed to upload avatar');
+    if (!response.data || !response.data.success || !response.data.data || !response.data.data.fileUrl) {
+      throw new Error((response.data && response.data.message) || 'Failed to upload avatar');
     }
 
-    return response.data.fileUrl;
+    console.log('Avatar upload response:', response.data);
+    return response.data.data.fileUrl;
   } catch (error) {
     console.error('Error uploading avatar:', error);
     throw new Error(handleApiError(error));
@@ -325,13 +326,14 @@ export const updateProfile = async (profileData: UpdateProfileData): Promise<Use
     }
 
     // Real API call
-    const response = await api.put<User>('/users/profile', updatedProfileData);
+    const response = await api.put<{success: boolean, data: User}>('/users/profile', updatedProfileData);
 
-    if (!response.data) {
+    if (!response.data || !response.data.success || !response.data.data) {
       throw new Error('Failed to update profile');
     }
 
-    return response.data;
+    console.log('Profile update response from server:', response.data);
+    return response.data.data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }

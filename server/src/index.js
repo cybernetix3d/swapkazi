@@ -12,6 +12,7 @@ const listingRoutes = require('./routes/listing.routes');
 const transactionRoutes = require('./routes/transaction.routes');
 const messageRoutes = require('./routes/message.routes');
 const uploadRoutes = require('./routes/upload.routes');
+const geocodingRoutes = require('./routes/geocoding.routes');
 
 // Initialize express app
 const app = express();
@@ -45,6 +46,7 @@ app.use('/api/listings', listingRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/geocoding', geocodingRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {

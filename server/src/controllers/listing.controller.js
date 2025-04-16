@@ -1,5 +1,6 @@
 const Listing = require('../models/listing.model');
 const User = require('../models/user.model');
+const { successResponse, errorResponse, paginatedResponse } = require('../utils/responseUtils');
 
 // @desc    Create a new listing
 // @route   POST /api/listings
@@ -25,12 +26,12 @@ const createListing = async (req, res) => {
 
     // Validate required fields
     if (!title || !description || !category || !listingType || !exchangeType) {
-      return res.status(400).json({ message: 'Please provide all required fields' });
+      return errorResponse(res, 'Please provide all required fields', 400);
     }
 
     // Validate talent price for Talent exchange type
     if ((exchangeType === 'Talent' || exchangeType === 'Both') && (!talentPrice || talentPrice < 0)) {
-      return res.status(400).json({ message: 'Please provide a valid talent price' });
+      return errorResponse(res, 'Please provide a valid talent price', 400);
     }
 
     // Format images to match the schema
@@ -66,10 +67,7 @@ const createListing = async (req, res) => {
     });
 
     if (formattedImages.length > 0 && !allImagesValid) {
-      return res.status(400).json({
-        success: false,
-        message: 'One or more image URLs are not from trusted sources. Please upload images using the /api/upload endpoints.'
-      });
+      return errorResponse(res, 'One or more image URLs are not from trusted sources. Please upload images using the /api/upload endpoints.', 400);
     }
 
     console.log('Formatted images:', formattedImages);
@@ -94,10 +92,10 @@ const createListing = async (req, res) => {
       },
     });
 
-    res.status(201).json(listing);
+    successResponse(res, listing, 201);
   } catch (error) {
     console.error('Create listing error:', error);
-    res.status(500).json({ message: 'Something went wrong!', error: error.message });
+    errorResponse(res, 'Something went wrong!', 500, error);
   }
 };
 
@@ -156,21 +154,11 @@ const getListings = async (req, res) => {
     // Get total count
     const total = await Listing.countDocuments(filter);
 
-    // Format response to match mobile app expectations
-    const response = {
-      success: true,
-      data: listings,
-      count: listings.length,
-      total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / parseInt(limit))
-    };
-
     console.log('Sending response with', listings.length, 'listings');
-    res.json(response);
+    paginatedResponse(res, listings, total, page, limit);
   } catch (error) {
     console.error('Get listings error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -185,17 +173,17 @@ const getListingById = async (req, res) => {
     );
 
     if (!listing) {
-      return res.status(404).json({ message: 'Listing not found' });
+      return errorResponse(res, 'Listing not found', 404);
     }
 
     // Increment view count
     listing.views += 1;
     await listing.save();
 
-    res.json(listing);
+    successResponse(res, listing);
   } catch (error) {
     console.error('Get listing by ID error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -207,12 +195,12 @@ const updateListing = async (req, res) => {
     const listing = await Listing.findById(req.params.id);
 
     if (!listing) {
-      return res.status(404).json({ message: 'Listing not found' });
+      return errorResponse(res, 'Listing not found', 404);
     }
 
     // Check if user owns the listing
     if (listing.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: 'Not authorized to update this listing' });
+      return errorResponse(res, 'Not authorized to update this listing', 401);
     }
 
     // Update fields if provided
@@ -292,10 +280,10 @@ const updateListing = async (req, res) => {
     if (isActive !== undefined) listing.isActive = isActive;
 
     const updatedListing = await listing.save();
-    res.json(updatedListing);
+    successResponse(res, updatedListing);
   } catch (error) {
     console.error('Update listing error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -307,12 +295,12 @@ const deleteListing = async (req, res) => {
     const listing = await Listing.findById(req.params.id);
 
     if (!listing) {
-      return res.status(404).json({ message: 'Listing not found' });
+      return errorResponse(res, 'Listing not found', 404);
     }
 
     // Check if user owns the listing
     if (listing.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: 'Not authorized to delete this listing' });
+      return errorResponse(res, 'Not authorized to delete this listing', 401);
     }
 
     // Delete associated images from Firebase Storage
@@ -336,10 +324,10 @@ const deleteListing = async (req, res) => {
 
     // Delete the listing from the database
     await listing.deleteOne();
-    res.json({ success: true, message: 'Listing and associated images removed' });
+    successResponse(res, { message: 'Listing and associated images removed' });
   } catch (error) {
     console.error('Delete listing error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -350,10 +338,10 @@ const getUserListings = async (req, res) => {
   try {
     const userId = req.params.userId;
     const listings = await Listing.find({ user: userId, isActive: true }).sort({ createdAt: -1 });
-    res.json(listings);
+    successResponse(res, listings);
   } catch (error) {
     console.error('Get user listings error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -381,10 +369,7 @@ const getNearbyListings = async (req, res) => {
     } = req.query;
 
     if (!longitude || !latitude) {
-      return res.status(400).json({
-        success: false,
-        message: 'Longitude and latitude are required'
-      });
+      return errorResponse(res, 'Longitude and latitude are required', 400);
     }
 
     // Parse coordinates
@@ -469,25 +454,11 @@ const getNearbyListings = async (req, res) => {
       return listingObj;
     });
 
-    // Format response to match mobile app expectations
-    const response = {
-      success: true,
-      data: listingsWithDistance,
-      count: listings.length,
-      total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / parseInt(limit))
-    };
-
     console.log(`Found ${listings.length} nearby listings out of ${total} total`);
-    res.json(response);
+    paginatedResponse(res, listingsWithDistance, total, page, limit);
   } catch (error) {
     console.error('Get nearby listings error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -499,7 +470,7 @@ const toggleLikeListing = async (req, res) => {
     const listing = await Listing.findById(req.params.id);
 
     if (!listing) {
-      return res.status(404).json({ message: 'Listing not found' });
+      return errorResponse(res, 'Listing not found', 404);
     }
 
     // Check if user has already liked the listing
@@ -517,13 +488,13 @@ const toggleLikeListing = async (req, res) => {
 
     await listing.save();
 
-    res.json({
+    successResponse(res, {
       likes: listing.likes.length,
       isLiked: !alreadyLiked,
     });
   } catch (error) {
     console.error('Toggle like listing error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -648,25 +619,11 @@ const searchListings = async (req, res) => {
     // Get total count for pagination
     const total = await Listing.countDocuments(filter);
 
-    // Format response to match mobile app expectations
-    const response = {
-      success: true,
-      data: listings,
-      count: listings.length,
-      total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / parseInt(limit))
-    };
-
     console.log(`Found ${listings.length} listings out of ${total} total`);
-    res.json(response);
+    paginatedResponse(res, listings, total, page, limit);
   } catch (error) {
     console.error('Search listings error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -681,10 +638,7 @@ const uploadImage = async (req, res) => {
 
     // Check if image data is provided
     if (!req.body.image) {
-      return res.status(400).json({
-        success: false,
-        message: 'No image data provided. Use /api/upload/listing with multipart/form-data instead.'
-      });
+      return errorResponse(res, 'No image data provided. Use /api/upload/listing with multipart/form-data instead.', 400);
     }
 
     // For backward compatibility, we'll still handle base64 images if provided
@@ -692,10 +646,7 @@ const uploadImage = async (req, res) => {
     const matches = req.body.image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
 
     if (!matches || matches.length !== 3) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid image format. Expected base64 data URI.'
-      });
+      return errorResponse(res, 'Invalid image format. Expected base64 data URI.', 400);
     }
 
     // Get the file type and base64 data
@@ -714,19 +665,10 @@ const uploadImage = async (req, res) => {
     const { uploadFile } = require('../utils/fileUpload');
     const fileUrl = await uploadFile(tempFile, 'listings');
 
-    res.json({
-      success: true,
-      data: {
-        url: fileUrl
-      }
-    });
+    successResponse(res, { url: fileUrl });
   } catch (error) {
     console.error('Upload image error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to upload image',
-      error: error.message
-    });
+    errorResponse(res, 'Failed to upload image', 500, error);
   }
 };
 
@@ -742,7 +684,3 @@ module.exports = {
   searchListings,
   uploadImage,
 };
-
-
-
-

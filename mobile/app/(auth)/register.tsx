@@ -83,7 +83,7 @@ export default function Register() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Text style={[styles.title, { color: colors.text.primary }]}>Create Account</Text>
         <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
-          Join SwopKasi community and start bartering
+          Join the SwapKazi community and start bartering
         </Text>
         
         <View style={styles.form}>

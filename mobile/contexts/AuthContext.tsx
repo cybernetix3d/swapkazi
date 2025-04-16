@@ -36,15 +36,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const storedToken = await AsyncStorage.getItem('token');
         const storedUser = await AsyncStorage.getItem('user');
 
+        console.log('Stored token exists:', !!storedToken);
+        console.log('Stored user exists:', !!storedUser);
+
         if (storedToken && storedUser) {
+          // Clean up the token (remove any whitespace)
+          const cleanToken = storedToken.trim();
+
           // Verify token is still valid
           try {
             // Attempt to validate token by making a request
-            const isValid = await AuthService.validateToken(storedToken);
+            console.log('Validating token...');
+            const isValid = await AuthService.validateToken(cleanToken);
 
             if (isValid) {
               console.log('Token is valid, setting auth state');
-              setToken(storedToken);
+              setToken(cleanToken);
               // Make sure storedUser is valid JSON before parsing
               try {
                 setUser(JSON.parse(storedUser));
@@ -65,6 +72,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             await AsyncStorage.removeItem('user');
             await AsyncStorage.removeItem('token');
           }
+        } else {
+          console.log('No stored authentication data found');
         }
       } catch (e) {
         console.error('Failed to load authentication data', e);
@@ -86,15 +95,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       const { token, user } = await AuthService.login(email, password);
 
-      // Store auth data
-      await AsyncStorage.setItem('token', token);
+      if (!token) {
+        throw new Error('No token received from server');
+      }
+
+      console.log('Login successful, received token');
+
+      // Clean the token and store auth data
+      const cleanToken = token.trim();
+      await AsyncStorage.setItem('token', cleanToken);
       await AsyncStorage.setItem('user', JSON.stringify(user));
 
-      setToken(token);
+      setToken(cleanToken);
       setUser(user);
       return true;
     } catch (e) {
       const error = e as Error;
+      console.error('Login error:', error);
       setError(error.message || 'Failed to login');
       return false;
     } finally {
@@ -109,15 +126,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       const { token, user } = await AuthService.register(userData);
 
-      // Store auth data
-      await AsyncStorage.setItem('token', token);
+      if (!token) {
+        throw new Error('No token received from server');
+      }
+
+      console.log('Registration successful, received token');
+
+      // Clean the token and store auth data
+      const cleanToken = token.trim();
+      await AsyncStorage.setItem('token', cleanToken);
       await AsyncStorage.setItem('user', JSON.stringify(user));
 
-      setToken(token);
+      setToken(cleanToken);
       setUser(user);
       return true;
     } catch (e) {
       const error = e as Error;
+      console.error('Registration error:', error);
       setError(error.message || 'Failed to register');
       return false;
     } finally {
@@ -158,14 +183,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       setIsLoading(true);
+      console.log('Updating profile with data:', data);
       const updatedUser = await AuthService.updateProfile(data, token);
+
+      console.log('Profile updated successfully:', updatedUser);
 
       // Update stored user data
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+
+      // Update the user state to trigger UI updates
+      setUser(prevUser => {
+        if (!prevUser) return updatedUser;
+        return { ...prevUser, ...updatedUser };
+      });
+
+      // Force a refresh of the profile to ensure we have the latest data
+      setTimeout(() => refreshProfile(), 500);
+
       return true;
     } catch (e) {
       const error = e as Error;
+      console.error('Profile update error:', error);
 
       // Handle authentication errors
       if (error.message.includes('authentication') || error.message.includes('token')) {
@@ -188,17 +226,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const refreshProfile = async (): Promise<boolean> => {
     try {
       if (!token) {
+        console.log('Cannot refresh profile: No token available');
         return false;
       }
 
+      console.log('Refreshing user profile...');
       const updatedUser = await AuthService.getProfile(token);
+
+      if (!updatedUser) {
+        console.error('Failed to get updated user profile');
+        return false;
+      }
+
+      console.log('Profile refreshed successfully:', updatedUser);
 
       // Update stored user data
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+
+      // Update the user state to trigger UI updates
       setUser(updatedUser);
       return true;
     } catch (e) {
       const error = e as Error;
+      console.error('Profile refresh error:', error);
 
       // Handle authentication errors
       if (error.message.includes('authentication') || error.message.includes('token')) {

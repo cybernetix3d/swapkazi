@@ -22,8 +22,10 @@ axiosInstance.interceptors.request.use(
 
     // If token exists, add to headers
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log('Adding auth token to request');
+      // Make sure token is properly formatted
+      const formattedToken = token.trim();
+      config.headers.Authorization = `Bearer ${formattedToken}`;
+      console.log('Adding auth token to request:', formattedToken.substring(0, 10) + '...');
     } else {
       console.log('No auth token found for request');
     }

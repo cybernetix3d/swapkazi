@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user.model');
 const { sendEmail } = require('../utils/emailService');
+const { successResponse, errorResponse } = require('../utils/responseUtils');
 
 // Generate JWT token
 const generateToken = (id) => {
@@ -20,7 +21,7 @@ const registerUser = async (req, res) => {
     // Validate required fields
     if (!username || !email || !password || !fullName) {
       console.log('Missing required fields');
-      return res.status(400).json({ message: 'All fields are required' });
+      return errorResponse(res, 'All fields are required', 400);
     }
 
     // Check if user already exists
@@ -28,11 +29,9 @@ const registerUser = async (req, res) => {
 
     if (userExists) {
       console.log('User already exists:', userExists.email === email ? 'Email taken' : 'Username taken');
-      return res.status(400).json({
-        message: userExists.email === email
-          ? 'Email already in use'
-          : 'Username already taken',
-      });
+      return errorResponse(res, userExists.email === email
+        ? 'Email already in use'
+        : 'Username already taken', 400);
     }
 
     console.log('Creating new user...');
@@ -66,14 +65,14 @@ const registerUser = async (req, res) => {
         }
       };
       console.log('User created successfully');
-      return res.status(201).json(response);
+      return successResponse(res, response, 201);
     } else {
       console.log('Failed to create user');
-      return res.status(400).json({ message: 'Invalid user data' });
+      return errorResponse(res, 'Invalid user data', 400);
     }
   } catch (error) {
     console.error('Registration error:', error);
-    return res.status(500).json({ message: 'Server error during registration' });
+    return errorResponse(res, 'Server error during registration', 500, error);
   }
 };
 
@@ -87,7 +86,7 @@ const loginUser = async (req, res) => {
 
     if (!email || !password) {
       console.log('Missing email or password');
-      return res.status(400).json({ message: 'Email and password are required' });
+      return errorResponse(res, 'Email and password are required', 400);
     }
 
     // Find user by email
@@ -116,14 +115,14 @@ const loginUser = async (req, res) => {
         }
       };
       console.log('Login successful, sending response');
-      return res.json(response);
+      return successResponse(res, response);
     } else {
       console.log('Invalid credentials');
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return errorResponse(res, 'Invalid email or password', 401);
     }
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Server error during login' });
+    return errorResponse(res, 'Server error during login', 500, error);
   }
 };
 
@@ -135,13 +134,13 @@ const getCurrentUser = async (req, res) => {
     const user = await User.findById(req.user._id).select('-password');
 
     if (user) {
-      res.json(user);
+      successResponse(res, user);
     } else {
-      res.status(404).json({ message: 'User not found' });
+      errorResponse(res, 'User not found', 404);
     }
   } catch (error) {
     console.error('Get current user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -153,7 +152,7 @@ const forgotPassword = async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
+      return errorResponse(res, 'Email is required', 400);
     }
 
     // Check if user exists
@@ -162,7 +161,7 @@ const forgotPassword = async (req, res) => {
     if (!user) {
       // For security reasons, don't reveal that the email doesn't exist
       // Just return success message as if email was sent
-      return res.status(200).json({ message: 'If your email is registered, you will receive a password reset link' });
+      return successResponse(res, { message: 'If your email is registered, you will receive a password reset link' });
     }
 
     // Generate reset token
@@ -197,7 +196,7 @@ const forgotPassword = async (req, res) => {
       // Log the reset URL for development
       console.log(`Reset URL for ${email}: ${resetUrl}`);
 
-      res.status(200).json({
+      successResponse(res, {
         message: 'If your email is registered, you will receive a password reset link',
         // In development, return the token and URL for testing
         ...(process.env.NODE_ENV === 'development' && { resetToken, resetUrl })
@@ -210,11 +209,11 @@ const forgotPassword = async (req, res) => {
       user.resetPasswordExpires = undefined;
       await user.save();
 
-      return res.status(500).json({ message: 'Could not send reset email. Please try again.' });
+      return errorResponse(res, 'Could not send reset email. Please try again.', 500, emailError);
     }
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -226,7 +225,7 @@ const resetPassword = async (req, res) => {
     const { token, newPassword } = req.body;
 
     if (!token || !newPassword) {
-      return res.status(400).json({ message: 'Token and new password are required' });
+      return errorResponse(res, 'Token and new password are required', 400);
     }
 
     // Verify token
@@ -234,7 +233,7 @@ const resetPassword = async (req, res) => {
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
-      return res.status(400).json({ message: 'Invalid or expired token' });
+      return errorResponse(res, 'Invalid or expired token', 400, error);
     }
 
     // Find user by id and token
@@ -245,7 +244,7 @@ const resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired token' });
+      return errorResponse(res, 'Invalid or expired token', 400);
     }
 
     // Update password
@@ -254,10 +253,10 @@ const resetPassword = async (req, res) => {
     user.resetPasswordExpires = undefined;
     await user.save();
 
-    res.status(200).json({ message: 'Password has been reset successfully' });
+    successResponse(res, { message: 'Password has been reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 

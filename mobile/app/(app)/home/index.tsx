@@ -1,4 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { safeGet, isValidArray, safeMap } from '../../../utils/nullChecks';
+import { getListingImageUrl as getImageUrl, getUserAvatarUrl, isValidImageUrl } from '../../../utils/imageUtils';
+import { formatErrorMessage, tryCatch } from '../../../utils/errorUtils';
+import ErrorMessage from '../../../components/ErrorMessage';
+import LoadingIndicator from '../../../components/LoadingIndicator';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import Icon from '../../../components/ui/Icon';
@@ -9,26 +14,15 @@ import { Listing, User } from '../../../types';
 import * as ListingService from '../../../services/listingService';
 import * as UserService from '../../../services/userService';
 import DefaultAvatar from '../../../components/DefaultAvatar';
-
-// Helper function to get image URL from listing
-const getListingImageUrl = (listing: Listing): string => {
-  if (listing.images && listing.images.length > 0) {
-    const firstImage = listing.images[0];
-    if (typeof firstImage === 'string') {
-      return firstImage;
-    } else if (typeof firstImage === 'object' && firstImage.url) {
-      return firstImage.url;
-    }
-  }
-  return 'https://via.placeholder.com/150';
-};
-
+import { useLocation } from '../../../hooks/useLocation';
+import { DEFAULT_LOCATION } from '../../../config/maps';
 
 
 export default function HomeScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const router = useRouter();
+  const { location, getLocation } = useLocation();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [featuredListings, setFeaturedListings] = useState<Listing[]>([]);
   const [nearbyUsers, setNearbyUsers] = useState<User[]>([]);
@@ -40,57 +34,70 @@ export default function HomeScreen() {
   }, []);
 
   const loadData = async () => {
-    try {
-      setRefreshing(true);
-      setError(null);
+    setRefreshing(true);
+    setError(null);
 
-      // Fetch featured listings
-      try {
-        const listingsResponse = await ListingService.getListings({
-          isFeatured: true,
-          limit: 3,
-          page: 1
-        });
+    // Fetch featured listings
+    await tryCatch(async () => {
+      const listingsResponse = await ListingService.getListings({
+        isFeatured: true,
+        limit: 3,
+        page: 1
+      });
 
-        if (listingsResponse.success && listingsResponse.data) {
-          setFeaturedListings(listingsResponse.data);
-        } else {
-          setError('Failed to load featured listings');
-          setFeaturedListings([]);
-        }
-      } catch (error) {
-        console.error('Error fetching listings:', error);
-        setError('Error loading listings');
+      if (listingsResponse.success && listingsResponse.data) {
+        setFeaturedListings(listingsResponse.data);
+      } else {
+        setError('Failed to load featured listings');
         setFeaturedListings([]);
       }
+    }, (error) => {
+      console.error('Error fetching listings:', error);
+      setError(formatErrorMessage(error) || 'Error loading listings');
+      setFeaturedListings([]);
+    });
 
-      // Fetch nearby users
-      try {
-        const defaultLocation = [18.4241, -33.9249]; // Cape Town coordinates
-        const usersResponse = await UserService.getNearbyUsers(
-          defaultLocation[0],
-          defaultLocation[1],
-          10000, // 10km radius
-          5 // limit to 5 users
-        );
+    // Fetch nearby users
+    await tryCatch(async () => {
+      // Try to get the user's current location
+      let userLocation = location;
 
-        if (usersResponse.success && usersResponse.data) {
-          setNearbyUsers(usersResponse.data);
-        } else {
-          setError('Failed to load nearby users');
-          setNearbyUsers([]);
+      // If we don't have a location yet, try to get it
+      if (!userLocation) {
+        try {
+          userLocation = await getLocation();
+        } catch (locationError) {
+          console.error('Error getting location:', locationError);
         }
-      } catch (error) {
-        console.error('Error fetching nearby users:', error);
-        setError('Error loading nearby users');
+      }
+
+      // Use the user's location if available, otherwise use default location
+      const coordinates = userLocation
+        ? [userLocation.longitude, userLocation.latitude]
+        : [DEFAULT_LOCATION.longitude, DEFAULT_LOCATION.latitude];
+
+      console.log('Using coordinates for nearby users:', coordinates);
+
+      const usersResponse = await UserService.getNearbyUsers(
+        coordinates[0],
+        coordinates[1],
+        10000, // 10km radius
+        5 // limit to 5 users
+      );
+
+      if (usersResponse.success && usersResponse.data) {
+        setNearbyUsers(usersResponse.data);
+      } else {
+        setError('Failed to load nearby users');
         setNearbyUsers([]);
       }
-    } catch (error) {
-      console.error('Error loading home data:', error);
-      setError('Failed to load data. Please try again.');
-    } finally {
-      setRefreshing(false);
-    }
+    }, (error) => {
+      console.error('Error fetching nearby users:', error);
+      setError(formatErrorMessage(error) || 'Error loading nearby users');
+      setNearbyUsers([]);
+    });
+
+    setRefreshing(false);
   };
 
   const onRefresh = () => {
@@ -106,23 +113,21 @@ export default function HomeScreen() {
       }
     >
       {errorMessage && (
-        <View style={[styles.errorContainer, { backgroundColor: colors.error }]}>
-          <Text style={styles.errorText}>{errorMessage}</Text>
-        </View>
+        <ErrorMessage message={errorMessage} onRetry={onRefresh} />
       )}
       {/* Welcome and Balance Section */}
       <View style={styles.header}>
         <View>
           <Text style={[styles.welcomeText, { color: colors.text.primary }]}>
-            Sawubona, {user?.fullName || 'Neighbor'}!
+            Sawubona, {safeGet(user, 'fullName', 'Neighbor')}!
           </Text>
           <Text style={[styles.subText, { color: colors.text.secondary }]}>
-            Welcome to SwopKasi
+            Welcome to SwapKazi
           </Text>
         </View>
         <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
           <Text style={styles.balanceLabel}>Your Talents</Text>
-          <Text style={styles.balanceValue}>{user?.talentBalance || 10}</Text>
+          <Text style={styles.balanceValue}>{safeGet(user, 'talentBalance', 10)}</Text>
         </View>
       </View>
 
@@ -206,7 +211,7 @@ export default function HomeScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {Array.isArray(featuredListings) ? featuredListings.map((item) => (
+          {featuredListings && featuredListings.length > 0 ? safeMap(featuredListings, (item) => (
             <TouchableOpacity
               key={item._id}
               style={[
@@ -223,7 +228,7 @@ export default function HomeScreen() {
               ]}
               onPress={() => router.push(`/(app)/marketplace/${item._id}`)}
             >
-              <Image source={{ uri: getListingImageUrl(item) }} style={styles.listingImage} />
+              <Image source={{ uri: getImageUrl(item) }} style={styles.listingImage} />
               <View style={styles.listingDetails}>
                 <Text style={[styles.listingTitle, { color: colors.text.primary }]}>
                   {item.title}
@@ -301,7 +306,7 @@ export default function HomeScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {Array.isArray(nearbyUsers) ? nearbyUsers.map((user) => (
+          {nearbyUsers && nearbyUsers.length > 0 ? safeMap(nearbyUsers, (user) => (
             <TouchableOpacity
               key={user._id}
               style={[
@@ -316,23 +321,23 @@ export default function HomeScreen() {
                   elevation: 1
                 }
               ]}
-              onPress={() => router.push(`/(app)/profile/${user._id}`)}
+              onPress={() => router.push(`/(app)/profile/${safeGet(user, '_id', 'unknown')}`)}
             >
-              {user.avatar ? (
-                <Image source={{ uri: user.avatar }} style={styles.userCardAvatar} />
+              {safeGet(user, 'avatar', null) ? (
+                <Image source={{ uri: getUserAvatarUrl(user) }} style={styles.userCardAvatar} />
               ) : (
                 <DefaultAvatar
-                  name={user.fullName || user.username || 'User'}
-                  userId={user._id}
+                  name={safeGet(user, 'fullName', '') || safeGet(user, 'username', 'User')}
+                  userId={safeGet(user, '_id', 'unknown')}
                   size={50}
                   style={styles.userCardAvatar}
                 />
               )}
               <Text style={[styles.userCardName, { color: colors.text.primary }]}>
-                {user.fullName || user.username}
+                {safeGet(user, 'fullName', '') || safeGet(user, 'username', 'User')}
               </Text>
               <Text style={[styles.userCardSkills, { color: colors.text.secondary }]}>
-                {user.skills && Array.isArray(user.skills) ? user.skills.join(', ') : 'No skills listed'}
+                {safeGet(user, 'skills', []).length > 0 ? safeGet(user, 'skills', []).join(', ') : 'No skills listed'}
               </Text>
               <View style={[styles.distance, { backgroundColor: colors.background.dark }]}>
                 <Icon name="map-marker-alt" size={12} color={colors.primary} />
@@ -534,16 +539,7 @@ const styles = StyleSheet.create({
     fontSize: FONT.sizes.small,
     color: '#fff',
   },
-  errorContainer: {
-    padding: SPACING.medium,
-    marginBottom: SPACING.medium,
-    borderRadius: SIZES.borderRadius.medium,
-  },
-  errorText: {
-    color: '#fff',
-    fontSize: FONT.sizes.medium,
-    textAlign: 'center',
-  },
+
   emptyText: {
     fontSize: FONT.sizes.medium,
     textAlign: 'center',

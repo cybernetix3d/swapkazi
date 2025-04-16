@@ -76,9 +76,9 @@ export default function Login() {
           </View>
         </View>
 
-        <Text style={[styles.title, { color: colors.text.primary }]}>Welcome to SwopKasi</Text>
+        <Text style={[styles.title, { color: colors.text.primary }]}>Welcome to SwapKazi</Text>
         <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
-          Township barter made easy
+          Bartering made easy
         </Text>
 
         <View style={styles.form}>

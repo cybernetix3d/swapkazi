@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { safeGet, isValidArray, safeMap } from '../../../utils/nullChecks';
 import {
   View,
   Text,
@@ -66,14 +67,14 @@ export default function MarketplaceScreen() {
       const newFilters: Record<string, string> = {};
 
       // Process categories - support multiple selections
-      if (params.categories) {
+      if (safeGet(params, 'categories', '')) {
         try {
           // Try to parse the categories parameter as JSON
-          const categoriesParam = JSON.parse(params.categories);
+          const categoriesParam = JSON.parse(safeGet(params, 'categories', '[]'));
           if (Array.isArray(categoriesParam)) {
             // Filter to only include valid categories
             const validCategories = categoriesParam.filter(cat =>
-              categories.includes(cat as ListingCategory)
+              isValidArray(categories) && categories.includes(cat as ListingCategory)
             ) as ListingCategory[];
 
             console.log('Setting categories from params:', validCategories);
@@ -82,24 +83,24 @@ export default function MarketplaceScreen() {
         } catch (e) {
           console.error('Error parsing categories parameter:', e);
         }
-      } else if (params.category) {
+      } else if (safeGet(params, 'category', '')) {
         // For backward compatibility, also support single category
-        if (categories.includes(params.category as ListingCategory)) {
+        if (isValidArray(categories) && categories.includes(safeGet(params, 'category', '') as ListingCategory)) {
           console.log('Setting single category from params:', params.category);
-          setSelectedCategories([params.category as ListingCategory]);
+          setSelectedCategories([safeGet(params, 'category', '') as ListingCategory]);
         }
       }
       // Don't reset the categories if not specified - this allows the category buttons to maintain their state
 
       // Process other filters
       ['exchangeType', 'listingType', 'condition', 'minPrice', 'maxPrice', 'distance', 'sortBy'].forEach(key => {
-        if (params[key]) {
-          newFilters[key] = params[key];
+        if (safeGet(params, key, '')) {
+          newFilters[key] = safeGet(params, key, '');
         }
       });
 
       // Set the new filters only if they're different from current filters
-      const currentFiltersStr = JSON.stringify(activeFilters);
+      const currentFiltersStr = JSON.stringify(safeGet(activeFilters, '', {}));
       const newFiltersStr = JSON.stringify(newFilters);
 
       if (currentFiltersStr !== newFiltersStr) {
@@ -140,16 +141,19 @@ export default function MarketplaceScreen() {
 
       // Check if we have data in the response
       if (response.success && response.data) {
-        console.log(`Received ${response.data.length} listings`);
+        const responseData = isValidArray(response.data) ? response.data : [];
+        console.log(`Received ${responseData.length} listings`);
 
         if (refresh) {
-          setListings(response.data);
+          setListings(responseData);
         } else {
-          setListings((prev) => [...prev, ...response.data]);
+          setListings((prev) => [...prev, ...responseData]);
         }
 
         // Check if there are more pages
-        setHasMore(!!response.page && !!response.totalPages && response.page < response.totalPages);
+        const currentPage = safeGet(response, 'page', 1);
+        const totalPages = safeGet(response, 'totalPages', 1);
+        setHasMore(currentPage < totalPages);
 
         // Increment page for next fetch
         if (!refresh) {
@@ -224,22 +228,22 @@ export default function MarketplaceScreen() {
       let newSelectedCategories: ListingCategory[];
 
       // Check if the category is already selected
-      if (selectedCategories.includes(category)) {
+      if (isValidArray(selectedCategories) && selectedCategories.includes(category)) {
         // If already selected, remove it (toggle off)
         console.log('Deselecting category:', category);
         newSelectedCategories = selectedCategories.filter(cat => cat !== category);
       } else {
         // If not selected, add it to the selection
         console.log('Adding category to selection:', category);
-        newSelectedCategories = [...selectedCategories, category];
+        newSelectedCategories = [...(isValidArray(selectedCategories) ? selectedCategories : []), category];
       }
 
       // Update state with new selection
       setSelectedCategories(newSelectedCategories);
 
       // Update URL params to keep UI and URL in sync
-      const newParams = { ...params };
-      if (newSelectedCategories.length > 0) {
+      const newParams = { ...(params || {}) };
+      if (isValidArray(newSelectedCategories) && newSelectedCategories.length > 0) {
         // Store as JSON string to support multiple values
         newParams.categories = JSON.stringify(newSelectedCategories);
         // Remove old single category param if it exists
@@ -321,9 +325,9 @@ export default function MarketplaceScreen() {
       <View style={styles.categoryChipsContainer}>
         <View style={styles.categoryHeaderContainer}>
           <Text style={[styles.categoryLabel, { color: colors.text.secondary }]}>
-            Categories {selectedCategories.length > 0 && `(${selectedCategories.length} selected)`}:
+            Categories {isValidArray(selectedCategories) && selectedCategories.length > 0 && `(${selectedCategories.length} selected)`}:
           </Text>
-          {selectedCategories.length > 0 && (
+          {isValidArray(selectedCategories) && selectedCategories.length > 0 && (
             <TouchableOpacity
               style={[styles.clearCategoryButton, { borderColor: colors.primary }]}
               onPress={() => {
@@ -345,12 +349,12 @@ export default function MarketplaceScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesContainer}
         >
-          {categories.map((item) => (
+          {isValidArray(categories) ? categories.map((item) => (
             <TouchableOpacity
               key={item}
               style={[
                 styles.categoryChip,
-                selectedCategories.includes(item) ?
+                isValidArray(selectedCategories) && selectedCategories.includes(item) ?
                   {
                     backgroundColor: colors.primary,
                     borderWidth: 2,
@@ -371,19 +375,19 @@ export default function MarketplaceScreen() {
               <Icon
                 name={categoryIcons[item]}
                 size={16}
-                color={selectedCategories.includes(item) ? '#000' : colors.text.secondary}
+                color={isValidArray(selectedCategories) && selectedCategories.includes(item) ? '#000' : colors.text.secondary}
                 style={styles.categoryIcon}
               />
               <Text
                 style={[
                   styles.categoryText,
-                  { color: selectedCategories.includes(item) ? '#000' : colors.text.secondary }
+                  { color: isValidArray(selectedCategories) && selectedCategories.includes(item) ? '#000' : colors.text.secondary }
                 ]}
               >
                 {item}
               </Text>
             </TouchableOpacity>
-          ))}
+          )) : <View />}
         </ScrollView>
         {/* Removed duplicate clear button */}
       </View>
@@ -399,9 +403,9 @@ export default function MarketplaceScreen() {
 
       {/* Listings */}
       <FlatList
-        data={listings}
-        keyExtractor={(item) => item._id}
-        renderItem={({ item }) => <ListingCard listing={item} />}
+        data={isValidArray(listings) ? listings : []}
+        keyExtractor={(item) => safeGet(item, '_id', String(Math.random()))}  // Fallback to random ID if _id is missing
+        renderItem={({ item }) => item ? <ListingCard listing={item} /> : <View />}
         contentContainerStyle={styles.listingsContainer}
         refreshControl={
           <RefreshControl
@@ -426,11 +430,11 @@ export default function MarketplaceScreen() {
                   No listings found
                 </Text>
                 <Text style={[styles.emptySubText, { color: colors.text.muted }]}>
-                  {(selectedCategories.length > 0 || Object.keys(activeFilters).length > 0) ?
+                  {(isValidArray(selectedCategories) && selectedCategories.length > 0) || Object.keys(safeGet(activeFilters, '', {})).length > 0 ?
                     'Try removing some filters to see more listings' :
                     'There are no listings available at the moment'}
                 </Text>
-                {(selectedCategories.length > 0 || Object.keys(activeFilters).length > 0) && (
+                {((isValidArray(selectedCategories) && selectedCategories.length > 0) || Object.keys(safeGet(activeFilters, '', {})).length > 0) && (
                   <TouchableOpacity
                     style={[styles.clearFilterButton, { backgroundColor: colors.primary }]}
                     onPress={() => {
@@ -460,23 +464,23 @@ export default function MarketplaceScreen() {
           )
         }
         ListHeaderComponent={
-          listings.length > 0 ? (
+          isValidArray(listings) && listings.length > 0 ? (
             <View>
-              {activeFilters.condition && activeFilters.condition !== 'New' && (
+              {safeGet(activeFilters, 'condition', '') && safeGet(activeFilters, 'condition', '') !== 'New' && (
                 <View style={[styles.noteContainer, { backgroundColor: colors.background.card }]}>
                   <Text style={[styles.noteText, { color: colors.primary }]}>
                     Note: Showing "New" condition items as alternatives
                   </Text>
                 </View>
               )}
-              {activeFilters.exchangeType && activeFilters.exchangeType === 'Direct Swap' && (
+              {safeGet(activeFilters, 'exchangeType', '') && safeGet(activeFilters, 'exchangeType', '') === 'Direct Swap' && (
                 <View style={[styles.noteContainer, { backgroundColor: colors.background.card }]}>
                   <Text style={[styles.noteText, { color: colors.primary }]}>
                     Note: Showing "Talent" exchange type as alternatives
                   </Text>
                 </View>
               )}
-              {selectedCategories.length > 0 && selectedCategories.some(cat => !['Services', 'Food', 'Education', 'Crafts'].includes(cat)) && (
+              {isValidArray(selectedCategories) && selectedCategories.length > 0 && selectedCategories.some(cat => !['Services', 'Food', 'Education', 'Crafts'].includes(cat)) && (
                 <View style={[styles.noteContainer, { backgroundColor: colors.background.card }]}>
                   <Text style={[styles.noteText, { color: colors.primary }]}>
                     Note: Some selected categories may not have listings. Showing all available categories.
@@ -484,14 +488,14 @@ export default function MarketplaceScreen() {
                 </View>
               )}
             </View>
-          ) : null
+          ) : <View />
         }
         ListFooterComponent={
           loading && !refreshing ? (
             <View style={styles.loaderContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
-          ) : null
+          ) : <View />
         }
       />
     </View>

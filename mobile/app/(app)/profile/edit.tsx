@@ -19,6 +19,8 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { FONT, SPACING, SIZES } from '../../../constants/Theme';
 import { UpdateProfileData } from '../../../types';
 import * as ImagePicker from 'expo-image-picker';
+import { getLocationInfo } from '../../../utils/locationUtils';
+import { DEFAULT_LOCATION } from '../../../config/maps';
 import * as userService from '../../../services/userService';
 import DefaultAvatar from '../../../components/DefaultAvatar';
 
@@ -39,6 +41,7 @@ export default function EditProfileScreen() {
   });
   const [skillInput, setSkillInput] = useState('');
   const [imageUploading, setImageUploading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
 
   // Initialize form with user data
   useEffect(() => {
@@ -117,6 +120,37 @@ export default function EditProfileScreen() {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
       setImageUploading(false);
+    }
+  };
+
+  const handleGetCurrentLocation = async () => {
+    try {
+      setLocationLoading(true);
+
+      // Use our utility function to get location info
+      const locationInfo = await getLocationInfo();
+
+      // Update form data with location
+      setFormData(prev => ({
+        ...prev,
+        location: {
+          type: 'Point',
+          coordinates: locationInfo.coordinates,
+          address: locationInfo.address
+        }
+      }));
+
+      Alert.alert('Success', 'Your location has been updated.');
+    } catch (error: any) {
+      console.error('Error getting location:', error);
+
+      if (error.message === 'Location permission not granted') {
+        Alert.alert('Permission Required', 'Please allow access to your location.');
+      } else {
+        Alert.alert('Error', 'Failed to get your location. Please try again or enter it manually.');
+      }
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -244,6 +278,51 @@ export default function EditProfileScreen() {
           </View>
 
           <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text.primary }]}>Location</Text>
+            <View style={styles.locationInputContainer}>
+              <TextInput
+                style={[
+                  styles.locationInput,
+                  { backgroundColor: colors.background.card, color: colors.text.primary }
+                ]}
+                value={formData.location?.address || ''}
+                onChangeText={(text) => {
+                  // Update the location with the new address while preserving coordinates if they exist
+                  setFormData(prev => ({
+                    ...prev,
+                    location: {
+                      type: 'Point',
+                      coordinates: prev.location?.coordinates || [DEFAULT_LOCATION.longitude, DEFAULT_LOCATION.latitude], // Default to Cape Town if no coordinates
+                      address: text
+                    }
+                  }));
+                }}
+                placeholder="Your location (e.g., Cape Town, South Africa)"
+                placeholderTextColor={colors.text.muted}
+              />
+              <TouchableOpacity
+                style={[styles.locationButton, { backgroundColor: colors.primary }]}
+                onPress={handleGetCurrentLocation}
+                disabled={locationLoading}
+              >
+                {locationLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Icon name="map-marker-alt" size={16} color="#fff" />
+                )}
+              </TouchableOpacity>
+            </View>
+            {formData.location?.coordinates && (
+              <Text style={[styles.coordinatesText, { color: colors.text.secondary }]}>
+                Coordinates: {formData.location.coordinates[1].toFixed(4)}, {formData.location.coordinates[0].toFixed(4)}
+              </Text>
+            )}
+            <Text style={[styles.helperText, { color: colors.text.muted }]}>
+              Enter your city or neighborhood or use the location button to detect automatically
+            </Text>
+          </View>
+
+          <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text.primary }]}>Skills</Text>
             <View style={styles.skillsInputContainer}>
               <TextInput
@@ -327,7 +406,7 @@ export default function EditProfileScreen() {
             <Text style={[styles.buttonText, { color: colors.text.primary }]}>Cancel</Text>
           </TouchableOpacity>
 
-          
+
 
         </View>
       </ScrollView>
@@ -492,5 +571,34 @@ const styles = StyleSheet.create({
   changePasswordText: {
     fontSize: FONT.sizes.medium,
     fontWeight: '500',
+  },
+  helperText: {
+    fontSize: FONT.sizes.small,
+    marginTop: SPACING.xs,
+    fontStyle: 'italic',
+  },
+  locationInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationInput: {
+    flex: 1,
+    height: 50,
+    borderRadius: SIZES.borderRadius.medium,
+    paddingHorizontal: SPACING.medium,
+    fontSize: FONT.sizes.medium,
+    marginRight: SPACING.small,
+  },
+  locationButton: {
+    width: 50,
+    height: 50,
+    borderRadius: SIZES.borderRadius.medium,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  coordinatesText: {
+    fontSize: FONT.sizes.small,
+    marginTop: SPACING.xs,
+    fontStyle: 'italic',
   },
 });

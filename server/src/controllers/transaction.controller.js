@@ -2,6 +2,7 @@ const Transaction = require('../models/transaction.model');
 const User = require('../models/user.model');
 const Listing = require('../models/listing.model');
 const { Conversation } = require('../models/message.model');
+const { successResponse, errorResponse, paginatedResponse } = require('../utils/responseUtils');
 
 // @desc    Create a new transaction
 // @route   POST /api/transactions
@@ -21,13 +22,13 @@ const createTransaction = async (req, res) => {
 
     // Validate required fields
     if (!recipientId || !type) {
-      return res.status(400).json({ message: 'Recipient and transaction type are required' });
+      return errorResponse(res, 'Recipient and transaction type are required', 400);
     }
 
     // Check if recipient exists
     const recipient = await User.findById(recipientId);
     if (!recipient) {
-      return res.status(404).json({ message: 'Recipient not found' });
+      return errorResponse(res, 'Recipient not found', 404);
     }
 
     // Check if listing exists if provided
@@ -35,18 +36,18 @@ const createTransaction = async (req, res) => {
     if (listingId) {
       listing = await Listing.findById(listingId);
       if (!listing) {
-        return res.status(404).json({ message: 'Listing not found' });
+        return errorResponse(res, 'Listing not found', 404);
       }
     }
 
     // Validate talent amount for Talent transactions
     if ((type === 'Talent' || type === 'Combined') && (!talentAmount || talentAmount <= 0)) {
-      return res.status(400).json({ message: 'Please provide a valid talent amount' });
+      return errorResponse(res, 'Please provide a valid talent amount', 400);
     }
 
     // Check if user has enough talent balance for Talent transactions
     if ((type === 'Talent' || type === 'Combined') && req.user.talentBalance < talentAmount) {
-      return res.status(400).json({ message: 'Insufficient talent balance' });
+      return errorResponse(res, 'Insufficient talent balance', 400);
     }
 
     // Create transaction
@@ -87,7 +88,7 @@ const createTransaction = async (req, res) => {
       if (initiator.talentBalance < talentAmount) {
         // Delete the transaction we just created
         await Transaction.findByIdAndDelete(transaction._id);
-        return res.status(400).json({ message: 'Insufficient talent balance' });
+        return errorResponse(res, 'Insufficient talent balance', 400);
       }
 
       // Reserve the talents (will be transferred on completion)
@@ -121,14 +122,10 @@ const createTransaction = async (req, res) => {
       .populate('recipient', 'username fullName avatar')
       .populate('listing', 'title images');
 
-    // Format response to match mobile app expectations
-    res.status(201).json({
-      success: true,
-      data: populatedTransaction
-    });
+    successResponse(res, populatedTransaction, 201);
   } catch (error) {
     console.error('Create transaction error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -155,18 +152,10 @@ const getUserTransactions = async (req, res) => {
       .populate('recipient', 'username fullName avatar')
       .populate('listing', 'title images');
 
-    // Format response to match mobile app expectations
-    res.json({
-      success: true,
-      data: transactions,
-      count: transactions.length,
-      total: transactions.length,
-      page: 1,
-      totalPages: 1
-    });
+    paginatedResponse(res, transactions, transactions.length, 1, transactions.length);
   } catch (error) {
     console.error('Get user transactions error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -181,7 +170,7 @@ const getTransactionById = async (req, res) => {
       .populate('listing', 'title description images exchangeType talentPrice');
 
     if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
+      return errorResponse(res, 'Transaction not found', 404);
     }
 
     // Check if user is part of the transaction
@@ -189,17 +178,13 @@ const getTransactionById = async (req, res) => {
       transaction.initiator._id.toString() !== req.user._id.toString() &&
       transaction.recipient._id.toString() !== req.user._id.toString()
     ) {
-      return res.status(401).json({ message: 'Not authorized to view this transaction' });
+      return errorResponse(res, 'Not authorized to view this transaction', 401);
     }
 
-    // Format response to match mobile app expectations
-    res.json({
-      success: true,
-      data: transaction
-    });
+    successResponse(res, transaction);
   } catch (error) {
     console.error('Get transaction by ID error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -211,13 +196,13 @@ const updateTransactionStatus = async (req, res) => {
     const { status } = req.body;
 
     if (!status) {
-      return res.status(400).json({ message: 'Status is required' });
+      return errorResponse(res, 'Status is required', 400);
     }
 
     const transaction = await Transaction.findById(req.params.id);
 
     if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
+      return errorResponse(res, 'Transaction not found', 404);
     }
 
     // Check if user is part of the transaction
@@ -225,7 +210,7 @@ const updateTransactionStatus = async (req, res) => {
       transaction.initiator.toString() !== req.user._id.toString() &&
       transaction.recipient.toString() !== req.user._id.toString()
     ) {
-      return res.status(401).json({ message: 'Not authorized to update this transaction' });
+      return errorResponse(res, 'Not authorized to update this transaction', 401);
     }
 
     // Validate status transitions
@@ -239,9 +224,7 @@ const updateTransactionStatus = async (req, res) => {
       !validTransitions[transaction.status] ||
       !validTransitions[transaction.status].includes(status)
     ) {
-      return res.status(400).json({
-        message: `Cannot transition from ${transaction.status} to ${status}`,
-      });
+      return errorResponse(res, `Cannot transition from ${transaction.status} to ${status}`, 400);
     }
 
     // Special handling for status changes
@@ -257,7 +240,7 @@ const updateTransactionStatus = async (req, res) => {
       console.log('Recipient before update:', JSON.stringify(recipient));
 
       if (!initiator || !recipient) {
-        return res.status(404).json({ message: 'User not found' });
+        return errorResponse(res, 'User not found', 404);
       }
 
       // Handle talent transfer if applicable
@@ -269,7 +252,7 @@ const updateTransactionStatus = async (req, res) => {
         // If the recipient is completing the transaction, we don't need to check the initiator's balance
         // because the recipient is accepting the talents, not sending them
         if (req.user._id.toString() === initiator._id.toString() && initiator.talentBalance < transaction.talentAmount) {
-          return res.status(400).json({ message: 'Insufficient talent balance' });
+          return errorResponse(res, 'Insufficient talent balance', 400);
         }
 
         // Transfer talents using the transaction model's static method
@@ -291,7 +274,7 @@ const updateTransactionStatus = async (req, res) => {
           console.log(`Verified balances - Initiator: ${updatedInitiator.talentBalance}, Recipient: ${updatedRecipient.talentBalance}`);
         } catch (transferError) {
           console.error('Error transferring talents:', transferError);
-          return res.status(500).json({ message: 'Failed to transfer talents: ' + transferError.message });
+          return errorResponse(res, 'Failed to transfer talents: ' + transferError.message, 500, transferError);
         }
       } else {
         console.log(`Transaction type is ${transaction.type}, no talent transfer needed`);
@@ -333,14 +316,10 @@ const updateTransactionStatus = async (req, res) => {
       .populate('recipient', 'username fullName avatar talentBalance')
       .populate('listing', 'title images');
 
-    // Format response to match mobile app expectations
-    res.json({
-      success: true,
-      data: updatedTransaction
-    });
+    successResponse(res, updatedTransaction);
   } catch (error) {
     console.error('Update transaction status error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -352,13 +331,13 @@ const addTransactionMessage = async (req, res) => {
     const { content } = req.body;
 
     if (!content) {
-      return res.status(400).json({ message: 'Message content is required' });
+      return errorResponse(res, 'Message content is required', 400);
     }
 
     const transaction = await Transaction.findById(req.params.id);
 
     if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
+      return errorResponse(res, 'Transaction not found', 404);
     }
 
     // Check if user is part of the transaction
@@ -366,7 +345,7 @@ const addTransactionMessage = async (req, res) => {
       transaction.initiator.toString() !== req.user._id.toString() &&
       transaction.recipient.toString() !== req.user._id.toString()
     ) {
-      return res.status(401).json({ message: 'Not authorized to message in this transaction' });
+      return errorResponse(res, 'Not authorized to message in this transaction', 401);
     }
 
     // Add message
@@ -384,14 +363,10 @@ const addTransactionMessage = async (req, res) => {
       .populate('recipient', 'username fullName avatar')
       .populate('listing', 'title images');
 
-    // Format response to match mobile app expectations
-    res.json({
-      success: true,
-      data: updatedTransaction
-    });
+    successResponse(res, updatedTransaction);
   } catch (error) {
     console.error('Add transaction message error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -403,13 +378,13 @@ const updateMeetupDetails = async (req, res) => {
     const { meetupLocation, meetupTime } = req.body;
 
     if (!meetupLocation && !meetupTime) {
-      return res.status(400).json({ message: 'Meetup location or time is required' });
+      return errorResponse(res, 'Meetup location or time is required', 400);
     }
 
     const transaction = await Transaction.findById(req.params.id);
 
     if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
+      return errorResponse(res, 'Transaction not found', 404);
     }
 
     // Check if user is part of the transaction
@@ -417,7 +392,7 @@ const updateMeetupDetails = async (req, res) => {
       transaction.initiator.toString() !== req.user._id.toString() &&
       transaction.recipient.toString() !== req.user._id.toString()
     ) {
-      return res.status(401).json({ message: 'Not authorized to update this transaction' });
+      return errorResponse(res, 'Not authorized to update this transaction', 401);
     }
 
     // Update meetup details
@@ -445,10 +420,10 @@ const updateMeetupDetails = async (req, res) => {
       .populate('recipient', 'username fullName avatar')
       .populate('listing', 'title images');
 
-    res.json(updatedTransaction);
+    successResponse(res, updatedTransaction);
   } catch (error) {
     console.error('Update meetup details error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -460,18 +435,18 @@ const rateTransaction = async (req, res) => {
     const { rating, comment } = req.body;
 
     if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+      return errorResponse(res, 'Rating must be between 1 and 5', 400);
     }
 
     const transaction = await Transaction.findById(req.params.id);
 
     if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
+      return errorResponse(res, 'Transaction not found', 404);
     }
 
     // Check if transaction is completed
     if (transaction.status !== 'Completed') {
-      return res.status(400).json({ message: 'Can only rate completed transactions' });
+      return errorResponse(res, 'Can only rate completed transactions', 400);
     }
 
     // Check if user is part of the transaction
@@ -479,14 +454,14 @@ const rateTransaction = async (req, res) => {
     const isRecipient = transaction.recipient.toString() === req.user._id.toString();
 
     if (!isInitiator && !isRecipient) {
-      return res.status(401).json({ message: 'Not authorized to rate this transaction' });
+      return errorResponse(res, 'Not authorized to rate this transaction', 401);
     }
 
     // Update the appropriate rating field
     if (isInitiator) {
       // Initiator is rating the recipient
       if (transaction.initiatorRating && transaction.initiatorRating.rating) {
-        return res.status(400).json({ message: 'You have already rated this transaction' });
+        return errorResponse(res, 'You have already rated this transaction', 400);
       }
 
       transaction.initiatorRating = {
@@ -510,7 +485,7 @@ const rateTransaction = async (req, res) => {
     } else {
       // Recipient is rating the initiator
       if (transaction.recipientRating && transaction.recipientRating.rating) {
-        return res.status(400).json({ message: 'You have already rated this transaction' });
+        return errorResponse(res, 'You have already rated this transaction', 400);
       }
 
       transaction.recipientRating = {
@@ -543,10 +518,10 @@ const rateTransaction = async (req, res) => {
 
     await transaction.save();
 
-    res.json({ message: 'Transaction rated successfully' });
+    successResponse(res, { message: 'Transaction rated successfully' });
   } catch (error) {
     console.error('Rate transaction error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 

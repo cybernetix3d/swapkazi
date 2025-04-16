@@ -1,6 +1,7 @@
 const { Conversation, Message } = require('../models/message.model');
 const User = require('../models/user.model');
 const Listing = require('../models/listing.model');
+const { successResponse, errorResponse, paginatedResponse } = require('../utils/responseUtils');
 
 // @desc    Get all conversations for current user
 // @route   GET /api/messages/conversations
@@ -33,10 +34,10 @@ const getConversations = async (req, res) => {
       };
     });
 
-    res.json(formattedConversations);
+    successResponse(res, formattedConversations);
   } catch (error) {
     console.error('Get conversations error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -55,13 +56,13 @@ const createConversation = async (req, res) => {
 
     if (!userId) {
       console.log('Missing userId in request');
-      return res.status(400).json({ message: 'User ID is required' });
+      return errorResponse(res, 'User ID is required', 400);
     }
 
     // Check if the other user exists
     const otherUser = await User.findById(userId);
     if (!otherUser) {
-      return res.status(404).json({ message: 'User not found' });
+      return errorResponse(res, 'User not found', 404);
     }
 
     // Check if listing exists if provided
@@ -69,7 +70,7 @@ const createConversation = async (req, res) => {
     if (listingId) {
       listing = await Listing.findById(listingId);
       if (!listing) {
-        return res.status(404).json({ message: 'Listing not found' });
+        return errorResponse(res, 'Listing not found', 404);
       }
     }
 
@@ -96,7 +97,7 @@ const createConversation = async (req, res) => {
         console.log('Created new conversation:', conversation._id);
       } catch (createError) {
         console.error('Error creating conversation:', createError);
-        return res.status(500).json({ message: 'Failed to create conversation', error: createError.message });
+        return errorResponse(res, 'Failed to create conversation', 500, createError);
       }
     }
 
@@ -112,26 +113,14 @@ const createConversation = async (req, res) => {
         participants: populatedConversation.participants.map(p => p._id),
       });
 
-      res.status(200).json({
-        success: true,
-        data: populatedConversation,
-        message: 'Conversation retrieved successfully'
-      });
+      successResponse(res, populatedConversation);
     } catch (populateError) {
       console.error('Error populating conversation:', populateError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve conversation details',
-        error: populateError.message
-      });
+      return errorResponse(res, 'Failed to retrieve conversation details', 500, populateError);
     }
   } catch (error) {
     console.error('Create conversation error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error creating conversation',
-      error: error.message
-    });
+    errorResponse(res, 'Server error creating conversation', 500, error);
   }
 };
 
@@ -149,7 +138,7 @@ const getMessages = async (req, res) => {
 
     // Check if user is a participant in the conversation
     if (!conversation.participants.includes(req.user._id)) {
-      return res.status(401).json({ message: 'Not authorized to view these messages' });
+      return errorResponse(res, 'Not authorized to view these messages', 401);
     }
 
     // Get messages for this conversation
@@ -169,10 +158,10 @@ const getMessages = async (req, res) => {
       unreadMessages.map((msg) => msg.markAsRead(req.user._id))
     );
 
-    res.json(messages);
+    successResponse(res, messages);
   } catch (error) {
     console.error('Get messages error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -184,18 +173,18 @@ const sendMessage = async (req, res) => {
     const { conversationId, content, attachments } = req.body;
 
     if (!conversationId || !content) {
-      return res.status(400).json({ message: 'Conversation ID and content are required' });
+      return errorResponse(res, 'Conversation ID and content are required', 400);
     }
 
     const conversation = await Conversation.findById(conversationId);
 
     if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
+      return errorResponse(res, 'Conversation not found', 404);
     }
 
     // Check if user is a participant in the conversation
     if (!conversation.participants.includes(req.user._id)) {
-      return res.status(401).json({ message: 'Not authorized to send messages in this conversation' });
+      return errorResponse(res, 'Not authorized to send messages in this conversation', 401);
     }
 
     // Create the message
@@ -217,10 +206,10 @@ const sendMessage = async (req, res) => {
       'username fullName avatar'
     );
 
-    res.status(201).json(populatedMessage);
+    successResponse(res, populatedMessage, 201);
   } catch (error) {
     console.error('Send message error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -245,10 +234,10 @@ const getUnreadCount = async (req, res) => {
       'readBy.user': { $ne: req.user._id },
     });
 
-    res.json({ unreadCount });
+    successResponse(res, { unreadCount });
   } catch (error) {
     console.error('Get unread count error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 
@@ -261,22 +250,22 @@ const deleteConversation = async (req, res) => {
     const conversation = await Conversation.findById(conversationId);
 
     if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
+      return errorResponse(res, 'Conversation not found', 404);
     }
 
     // Check if user is a participant in the conversation
     if (!conversation.participants.includes(req.user._id)) {
-      return res.status(401).json({ message: 'Not authorized to delete this conversation' });
+      return errorResponse(res, 'Not authorized to delete this conversation', 401);
     }
 
     // Soft delete by marking as inactive
     conversation.isActive = false;
     await conversation.save();
 
-    res.json({ message: 'Conversation deleted successfully' });
+    successResponse(res, { message: 'Conversation deleted successfully' });
   } catch (error) {
     console.error('Delete conversation error:', error);
-    res.status(500).json({ message: 'Server error' });
+    errorResponse(res, 'Server error', 500, error);
   }
 };
 

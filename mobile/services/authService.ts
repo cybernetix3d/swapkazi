@@ -44,14 +44,15 @@ export const login = async (email: string, password: string): Promise<AuthRespon
 
     // Use the regular login endpoint
     console.log('Using regular login endpoint with:', { email, password });
-    const response = await api.post<AuthResponse>('/auth/login', { email, password });
+    const response = await api.post<{success: boolean, data: AuthResponse}>('/auth/login', { email, password });
 
-    if (!response.data) {
+    if (!response.data || !response.data.success) {
       throw new Error('Invalid response from server');
     }
 
     console.log('Login response:', response.data);
-    return response.data;
+    // Extract the actual data from the nested response
+    return response.data.data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -96,14 +97,15 @@ export const register = async (userData: RegisterData): Promise<AuthResponse> =>
     }
 
     // Real API call
-    const response = await api.post<AuthResponse>('/auth/register', userData);
+    const response = await api.post<{success: boolean, data: AuthResponse}>('/auth/register', userData);
 
-    if (!response.data) {
+    if (!response.data || !response.data.success) {
       throw new Error('Invalid response from server');
     }
 
     console.log('Register response:', response.data);
-    return response.data;
+    // Extract the actual data from the nested response
+    return response.data.data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -176,13 +178,14 @@ export const updateProfile = async (data: Partial<User>, token: string): Promise
     }
 
     // Real API call
-    const response = await api.put<User>('/users/profile', updatedData);
+    const response = await api.put<{success: boolean, data: User}>('/users/profile', updatedData);
 
-    if (!response.data) {
+    if (!response.data || !response.data.success) {
       throw new Error('Invalid response from server');
     }
 
-    return response.data;
+    console.log('Profile update response:', response.data);
+    return response.data.data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -223,13 +226,13 @@ export const getProfile = async (token: string): Promise<User> => {
     }
 
     // Real API call
-    const response = await api.get<User>('/auth/me');
+    const response = await api.get<{success: boolean, data: User}>('/auth/me');
 
-    if (!response.data) {
+    if (!response.data || !response.data.success) {
       throw new Error('Invalid response from server');
     }
 
-    return response.data;
+    return response.data.data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -270,13 +273,13 @@ export const getUserById = async (userId: string): Promise<User> => {
     }
 
     // Real API call
-    const response = await api.get<User>(`/users/${userId}`);
+    const response = await api.get<{success: boolean, data: User}>(`/users/${userId}`);
 
-    if (!response.data) {
+    if (!response.data || !response.data.success) {
       throw new Error('Invalid response from server');
     }
 
-    return response.data;
+    return response.data.data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -297,13 +300,21 @@ export const validateToken = async (token: string): Promise<boolean> => {
       return true;
     }
 
+    if (!token || token.trim() === '') {
+      console.error('Empty token provided for validation');
+      return false;
+    }
+
+    // Temporarily set the token in AsyncStorage to ensure it's used for this request
+    await AsyncStorage.setItem('token', token.trim());
+
     // Real API call - we'll use the /auth/me endpoint to validate the token
     // If the token is invalid, this will throw an error
-    const response = await api.get<User>('/auth/me');
+    const response = await api.get<{success: boolean, data: User}>('/auth/me');
 
     // If we get here, the token is valid
     console.log('Token is valid');
-    return true;
+    return response.data && response.data.success;
   } catch (error) {
     console.error('Token validation failed:', error);
     return false;
@@ -328,18 +339,18 @@ export const rateUser = async (userId: string, rating: number, comment?: string)
     }
 
     // Real API call
-    const response = await api.post<{ message: string; averageRating: number }>(`/users/${userId}/rate`, {
+    const response = await api.post<{ success: boolean; data: { message: string; averageRating: number } }>(`/users/${userId}/rate`, {
       rating,
       comment
     });
 
-    if (!response.data) {
+    if (!response.data || !response.data.success) {
       throw new Error('Invalid response from server');
     }
 
     return {
       success: true,
-      message: response.data.message
+      message: response.data.data.message
     };
   } catch (error) {
     throw new Error(handleApiError(error));

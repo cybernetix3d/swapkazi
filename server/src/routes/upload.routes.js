@@ -8,6 +8,7 @@ const express = require('express');
 const router = express.Router();
 const { multer, uploadFile, deleteFile } = require('../utils/fileUpload');
 const auth = require('../middleware/auth.middleware');
+const { successResponse, errorResponse } = require('../utils/responseUtils');
 
 /**
  * @route   POST /api/upload/avatar
@@ -17,29 +18,23 @@ const auth = require('../middleware/auth.middleware');
 router.post('/avatar', auth, multer.single('file'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return errorResponse(res, 'No file uploaded', 400);
     }
 
     // Check file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(req.file.mimetype)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed'
-      });
+      return errorResponse(res, 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed', 400);
     }
 
     // Upload file to Firebase Storage
     const fileUrl = await uploadFile(req.file, 'avatars');
 
     // Return the file URL
-    res.status(200).json({
-      success: true,
-      fileUrl
-    });
+    successResponse(res, { fileUrl });
   } catch (error) {
     console.error('Error uploading avatar:', error);
-    res.status(500).json({ success: false, message: 'Error uploading file' });
+    errorResponse(res, 'Error uploading file', 500, error);
   }
 });
 
@@ -51,29 +46,23 @@ router.post('/avatar', auth, multer.single('file'), async (req, res) => {
 router.post('/listing', auth, multer.single('file'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return errorResponse(res, 'No file uploaded', 400);
     }
 
     // Check file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(req.file.mimetype)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed'
-      });
+      return errorResponse(res, 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed', 400);
     }
 
     // Upload file to Firebase Storage
     const fileUrl = await uploadFile(req.file, 'listings');
 
     // Return the file URL
-    res.status(200).json({
-      success: true,
-      fileUrl
-    });
+    successResponse(res, { fileUrl });
   } catch (error) {
     console.error('Error uploading listing image:', error);
-    res.status(500).json({ success: false, message: 'Error uploading file' });
+    errorResponse(res, 'Error uploading file', 500, error);
   }
 });
 
@@ -87,23 +76,20 @@ router.delete('/', auth, async (req, res) => {
     const { fileUrl } = req.body;
 
     if (!fileUrl) {
-      return res.status(400).json({ success: false, message: 'No file URL provided' });
+      return errorResponse(res, 'No file URL provided', 400);
     }
 
     // Delete file from Firebase Storage
     const deleted = await deleteFile(fileUrl);
 
     if (!deleted) {
-      return res.status(404).json({ success: false, message: 'File not found or could not be deleted' });
+      return errorResponse(res, 'File not found or could not be deleted', 404);
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'File deleted successfully'
-    });
+    successResponse(res, { message: 'File deleted successfully' });
   } catch (error) {
     console.error('Error deleting file:', error);
-    res.status(500).json({ success: false, message: 'Error deleting file' });
+    errorResponse(res, 'Error deleting file', 500, error);
   }
 });
 
@@ -115,7 +101,7 @@ router.delete('/', auth, async (req, res) => {
 router.post('/multiple', auth, multer.array('files', 5), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ success: false, message: 'No files uploaded' });
+      return errorResponse(res, 'No files uploaded', 400);
     }
 
     // Check file types
@@ -123,10 +109,7 @@ router.post('/multiple', auth, multer.array('files', 5), async (req, res) => {
     const invalidFiles = req.files.filter(file => !allowedTypes.includes(file.mimetype));
 
     if (invalidFiles.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid file type(s). Only JPEG, PNG, GIF, and WebP images are allowed'
-      });
+      return errorResponse(res, 'Invalid file type(s). Only JPEG, PNG, GIF, and WebP images are allowed', 400);
     }
 
     // Upload files to Firebase Storage
@@ -134,13 +117,10 @@ router.post('/multiple', auth, multer.array('files', 5), async (req, res) => {
     const fileUrls = await Promise.all(uploadPromises);
 
     // Return the file URLs
-    res.status(200).json({
-      success: true,
-      fileUrls
-    });
+    successResponse(res, { fileUrls });
   } catch (error) {
     console.error('Error uploading multiple files:', error);
-    res.status(500).json({ success: false, message: 'Error uploading files' });
+    errorResponse(res, 'Error uploading files', 500, error);
   }
 });
 
