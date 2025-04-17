@@ -129,6 +129,15 @@ export default function NewConversationScreen() {
 
       console.log('Conversation created/retrieved:', conversation._id);
 
+      // Log the conversation details to help with debugging
+      console.log('Conversation details:', {
+        id: conversation._id,
+        otherUser: conversation.otherUser ? conversation.otherUser.fullName : 'Not provided',
+        otherParticipant: conversation.otherParticipant ? conversation.otherParticipant.fullName : 'Not provided',
+        participants: Array.isArray(conversation.participants) ?
+          conversation.participants.map(p => typeof p === 'object' ? p.fullName : p) : 'Not provided'
+      });
+
       // Send the message
       await MessageService.sendMessage({
         conversationId: conversation._id,

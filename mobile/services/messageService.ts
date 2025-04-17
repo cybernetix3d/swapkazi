@@ -98,6 +98,12 @@ export const getConversations = async (): Promise<ConversationListItem[]> => {
         conversationItem.otherParticipant = conversation.otherUser;
       }
 
+      // If we have otherParticipant directly from the server, use it
+      if (conversation.otherParticipant && typeof conversation.otherParticipant === 'object') {
+        console.log('Using otherParticipant from server:', conversation.otherParticipant);
+        conversationItem.otherParticipant = conversation.otherParticipant;
+      }
+
       // Find the other participant
       if (conversation.participants && Array.isArray(conversation.participants)) {
         // Try to find the current user ID in the participants
@@ -273,14 +279,16 @@ export const createOrGetConversation = async (
     console.log('Conversation response:', response.data);
 
     // Handle different response formats
+    let conversationData;
+
     if (response.data._id) {
       // Direct conversation object
       console.log('Server returned direct conversation object');
-      return response.data;
+      conversationData = response.data;
     } else if (response.data.data && response.data.data._id) {
       // Wrapped in data property
       console.log('Server returned wrapped conversation object');
-      return response.data.data;
+      conversationData = response.data.data;
     } else if (!response.data.success) {
       // Error response
       throw new Error(response.data.message || 'Failed to create conversation');
@@ -289,6 +297,17 @@ export const createOrGetConversation = async (
       console.error('Unexpected response format:', response.data);
       throw new Error('Invalid response format');
     }
+
+    // Log the conversation data to help with debugging
+    console.log('Conversation data:', {
+      id: conversationData._id,
+      otherUser: conversationData.otherUser ? conversationData.otherUser.fullName : 'Not provided',
+      otherParticipant: conversationData.otherParticipant ? conversationData.otherParticipant.fullName : 'Not provided',
+      participants: Array.isArray(conversationData.participants) ?
+        conversationData.participants.map(p => typeof p === 'object' ? p.fullName : p) : 'Not provided'
+    });
+
+    return conversationData;
   } catch (error) {
     console.error('Failed to create conversation:', error);
     throw new Error(handleApiError(error));

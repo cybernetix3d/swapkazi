@@ -49,6 +49,8 @@ const getConversations = async (req, res) => {
       return {
         _id: conv._id,
         otherUser: otherParticipant,
+        otherParticipant: otherParticipant, // Add this for backward compatibility
+        participants: conv.participants,
         listing: conv.listing,
         lastMessage: conv.lastMessage,
         lastMessageContent,
@@ -132,12 +134,22 @@ const createConversation = async (req, res) => {
         .populate('participants', 'username fullName avatar')
         .populate('listing', 'title images');
 
+      // Find the other participant (not the current user)
+      const otherParticipant = populatedConversation.participants.find(
+        (p) => p._id.toString() !== req.user._id.toString()
+      );
+
       console.log('Populated conversation:', {
         id: populatedConversation._id,
         participants: populatedConversation.participants.map(p => p._id),
+        otherParticipant: otherParticipant ? otherParticipant.fullName : 'Unknown'
       });
 
-      successResponse(res, populatedConversation);
+      // Add otherUser field to make it easier for the client
+      const responseData = populatedConversation.toObject();
+      responseData.otherUser = otherParticipant;
+
+      successResponse(res, responseData);
     } catch (populateError) {
       console.error('Error populating conversation:', populateError);
       return errorResponse(res, 'Failed to retrieve conversation details', 500, populateError);
